@@ -1,7 +1,14 @@
+## Server packages
+pyaudio
+pycryptodome
+
+# Audio model packages
 datasets
-gradio
-ipython
 librosa
 numpy
 sentencepiece
 transformers
+
+# Jupyter notebooks
+ipython
+ipykernel

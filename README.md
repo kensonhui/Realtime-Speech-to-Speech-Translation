@@ -1,18 +1,35 @@
 # Speech To Text To Speech Translation
 
 ### Installation Instructions:
-Install anaconda:
+
+Make sure your XCode CLI tools are fully updated!
+https://developer.apple.com/forums/thread/677124
+
+Install Anaconda:
 https://www.anaconda.com/download
 
 Run the initialization command:
 ```conda init```
 
+Make sure Conda is updated to the latest version:
+```conda upgrade conda```
+
 Create a virtual environment
 ```conda create -n "speech-to-speech" python==3.11```
+
 ```conda activate speech-to-speech```
 
 Install Pytorch here:
 https://pytorch.org/get-started/locally/
+
+Install Librosa
+```conda install -c conda-forge librosa```
+
+Install Transformers:
+```conda install -c huggingface transformers```
+
+Install pyaudio:
+```conda install pyaudio```
 
 Install Project Packages:
 ```pip install -r requirements.txt```
