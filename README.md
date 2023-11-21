@@ -12,7 +12,7 @@ Create a virtual environment
 ```conda activate speech-to-speech```
 
 Install Pytorch here:
-```conda install pytorch::pytorch torchvision torchaudio -c pytorch```
+https://pytorch.org/get-started/locally/
 
 Install Librosa:
 ```conda install -c conda-forge librosa```
