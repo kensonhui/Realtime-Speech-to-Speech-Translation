@@ -14,9 +14,6 @@ Create a virtual environment
 Install Pytorch here:
 https://pytorch.org/get-started/locally/
 
-Install Librosa:
-```conda install -c conda-forge librosa```
-
 Install Project Packages:
 ```pip install -r requirements.txt```
 

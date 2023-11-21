@@ -1,5 +1,6 @@
 datasets
-transformers
 gradio
-numpy
 ipython
+librosa
+numpy
+transformers
