@@ -3,4 +3,5 @@ gradio
 ipython
 librosa
 numpy
+sentencepiece
 transformers
