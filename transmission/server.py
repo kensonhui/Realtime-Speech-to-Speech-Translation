@@ -1,7 +1,8 @@
 import pyaudio
 import socket
 import select
-
+from models.speech_recognition import SpeechRecognitionModel
+from queue import Queue
 
 class AudioSocketServer:
     FORMAT = pyaudio.paInt16
@@ -17,11 +18,20 @@ class AudioSocketServer:
     def __init__(self):
         self.audio = pyaudio.PyAudio()
         self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # TODO: For multiple concurrent users we will need more queues
+        #   for now we only want one user to work first
+        self.data_queue = Queue()
+        # Initialize the transcriber model
+        self.transcriber = SpeechRecognitionModel(data_queue=self.data_queue)
         
     def __del__(self):
         self.audio.terminate()
+        self.transcriber.stop()
         
     def start(self):
+        print("Start transcriber")
+        self.transcriber.start(16000, 2)
+        
         print(f"Listening on port {self.PORT}")
         self.serversocket.bind(('', self.PORT))
         self.serversocket.listen(self.BACKLOG)
@@ -29,14 +39,6 @@ class AudioSocketServer:
         # Contains all of the socket connections, the first is the server socket for listening to
         #   new connections. All other ones are for individual clients sending data.
         self.read_list = [self.serversocket]
-
-        # start playing back audio, this is optional
-        stream = self.audio.open(format=self.FORMAT, 
-                                 channels=self.CHANNELS, 
-                                 rate=self.RATE, 
-                                 output=True, 
-                                 frames_per_buffer=self.CHUNK)
-        # stream.start_stream()
 
         try:
             while True:
@@ -48,8 +50,8 @@ class AudioSocketServer:
                         print("Connection from", address)
                     else:
                         data = s.recv(1024)
-                        print(data)
-                        stream.write(data)
+                        self.data_queue.put(data) 
+                        # stream.write(data)
                         if not data:
                             self.read_list.remove(s)
                             print("Disconnection from", address)
@@ -57,9 +59,6 @@ class AudioSocketServer:
             pass
 
         self.serversocket.close()
-        # stop Recording
-        stream.stop_stream()
-        stream.close()
 
 server = AudioSocketServer()
 server.start()

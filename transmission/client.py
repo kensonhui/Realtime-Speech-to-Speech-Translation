@@ -1,6 +1,7 @@
 import pyaudio
 import socket
 import sys
+import speech_recognition as sr
 
 class AudioSocketClient:
     FORMAT = pyaudio.paInt16
@@ -10,20 +11,29 @@ class AudioSocketClient:
     
     def __init__(self) -> None:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.audio = pyaudio.PyAudio()
+        self.recorder = sr.Recognizer()
+        self.recorder.energy_threshold = 1000
+        # Definitely do this, dynamic energy compensation lowers the energy threshold dramatically to a point where the SpeechRecognizer never stops recording.
+        self.recorder.dynamic_energy_threshold = False
+        
+        # If you're on Linux you'll need to actually list the microphone devices
+        #   here I'm being lazy
+        self.source = sr.Microphone(sample_rate=16000)
+        
+        print(f"Sample rate {self.source.SAMPLE_RATE}, Sample Width {self.source.SAMPLE_WIDTH}")
         
     def __del__(self):
         # Destroy Audio resources
-        self.audio.terminate()
         
         print('Shutting down')
 
     # Callback function for microphone input, fires when there is new data from the microphone
-    def send_data_callback(self, in_data, frame_count, time_info, status):
+    def record_callback(self, _, audio: sr.AudioData):
+        data = audio.get_raw_data()
+        print(data)
         # Sends data through the socket
-        self.socket.send(in_data)
+        self.socket.send(data)
         
-        return (None, pyaudio.paContinue)
     
     # Starts the event loop
     def start(self, ip, port):
@@ -32,12 +42,13 @@ class AudioSocketClient:
         # Connect to server
         self.socket.connect((ip, port))
         
+        with self.source:
+            self.recorder.adjust_for_ambient_noise(self.source)
+        
         # Start microphone
-        self.stream = self.audio.open(format=self.FORMAT, 
-                                      channels=self.CHANNELS, 
-                                      rate=self.RATE, input=True, 
-                                      frames_per_buffer=self.CHUNK, 
-                                      stream_callback=self.send_data_callback)
+        self.recorder.listen_in_background(self.source, 
+                                           self.record_callback,
+                                           phrase_time_limit=2)
          ## Open audio as input from microphone
         print("Started recording...")
         
@@ -53,8 +64,6 @@ class AudioSocketClient:
         
         # Close Socket Connection
         self.socket.close()
-        # Close Microphone
-        self.stream.close()
         
         
 client = AudioSocketClient()
