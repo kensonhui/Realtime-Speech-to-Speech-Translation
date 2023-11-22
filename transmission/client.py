@@ -2,36 +2,60 @@ import pyaudio
 import socket
 import sys
 
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-RATE = 44100
-CHUNK = 4096
-
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((sys.argv[1], int(sys.argv[2])))
-audio = pyaudio.PyAudio()
-
-# Callback function for microphone input
-def callback(in_data, frame_count, time_info, status):
-    # Fires when there is new data from the microphone
+class AudioSocketClient:
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 1
+    RATE = 44100
+    CHUNK = 4096
     
-    # Sends data through the socket
-    s.send(in_data)
+    def __init__(self) -> None:
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.audio = pyaudio.PyAudio()
+        
+    def __del__(self):
+        # Destroy Audio resources
+        self.audio.terminate()
+        
+        print('Shutting down')
+
+    # Callback function for microphone input, fires when there is new data from the microphone
+    def send_data_callback(self, in_data, frame_count, time_info, status):
+        # Sends data through the socket
+        self.socket.send(in_data)
+        
+        return (None, pyaudio.paContinue)
     
-    return (None, pyaudio.paContinue)
-
-## Open audio as input from microphone
-print("recording...")
-stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK, stream_callback=callback)
-
-try:
-    while True:
-        data = s.recv(CHUNK)
-        print(data)
-except KeyboardInterrupt:
-    pass
-
-print('Shutting down')
-s.close()
-stream.close()
-audio.terminate()
+    # Starts the event loop
+    def start(self, ip, port):
+        # TODO: Seperate this out as thread based process
+        
+        # Connect to server
+        self.socket.connect((ip, port))
+        
+        # Start microphone
+        self.stream = self.audio.open(format=self.FORMAT, 
+                                      channels=self.CHANNELS, 
+                                      rate=self.RATE, input=True, 
+                                      frames_per_buffer=self.CHUNK, 
+                                      stream_callback=self.send_data_callback)
+         ## Open audio as input from microphone
+        print("Started recording...")
+        
+        try:
+            while True:
+                # This is where we will receive data from the server
+                data = self.socket.recv(self.CHUNK)
+                print(data)
+        except KeyboardInterrupt:
+            pass
+        
+        print("Finished recording")
+        
+        # Close Socket Connection
+        self.socket.close()
+        # Close Microphone
+        self.stream.close()
+        
+        
+client = AudioSocketClient()
+client.start('127.0.0.1', 4444)
