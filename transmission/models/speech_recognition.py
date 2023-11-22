@@ -12,7 +12,7 @@ import os
 from datetime import datetime, timedelta
 from queue import Queue
 from tempfile import NamedTemporaryFile
-from time import sleep
+import time
 from sys import platform
 import threading
 
@@ -37,71 +37,76 @@ class SpeechRecognitionModel:
         self.audio_model = whisper.load_model(model_name)
         print("Finished loading model")
         self.thread = None
+        self._kill_thread = False
     
     def __del__(self):
-        self.thread.join()
+        self.__kill_worker__()
 
     def start(self, SAMPLE_RATE, SAMPLE_WIDTH):
         self.thread = threading.Thread(
             target=self.__worker__,
             args=(SAMPLE_RATE, SAMPLE_WIDTH)
             )
+        self._kill_thread = False
         self.thread.start()
         print("Finished starting thread")
         
     def stop(self):
+        self.__kill_worker__()
+        
+    def __kill_worker__(self):
+        self._kill_thread = True
         self.thread.join()
         
     def __worker__(self, SAMPLE_RATE, SAMPLE_WIDTH):
         # Do not call this method directly!!! You will block the main thread
         while True:
-            try:
-                now = datetime.utcnow()
-                # Pull raw recorded audio from the queue.
-                if not self.data_queue.empty():
-                    phrase_complete = False
-                    # If enough time has passed between recordings, consider the phrase complete.
-                    # Clear the current working audio buffer to start over with the new data.
-                    if self.phrase_time and now - self.phrase_time > timedelta(seconds=self.phrase_timeout):
-                        self.last_sample = bytes()
-                        phrase_complete = True
-                    # This is the last time we received new audio data from the queue.
-                    self.phrase_time = now
+            now = datetime.utcnow()
+            # Pull raw recorded audio from the queue.
+            if not self.data_queue.empty():
+                phrase_complete = False
+                # If enough time has passed between recordings, consider the phrase complete.
+                # Clear the current working audio buffer to start over with the new data.
+                if self.phrase_time and now - self.phrase_time > timedelta(seconds=self.phrase_timeout):
+                    self.last_sample = bytes()
+                    phrase_complete = True
+                # This is the last time we received new audio data from the queue.
+                self.phrase_time = now
 
-                    # Concatenate our current audio data with the latest audio data.
-                    while not self.data_queue.empty():
-                        data = self.data_queue.get()
-                        self.last_sample += data
+                # Concatenate our current audio data with the latest audio data.
+                while not self.data_queue.empty():
+                    data = self.data_queue.get()
+                    self.last_sample += data
 
-                    # Use AudioData to convert the raw data to wav data.
-                    audio_data = sr.AudioData(self.last_sample, SAMPLE_RATE, SAMPLE_WIDTH)
-                    wav_data = io.BytesIO(audio_data.get_wav_data())
+                # Use AudioData to convert the raw data to wav data.
+                audio_data = sr.AudioData(self.last_sample, SAMPLE_RATE, SAMPLE_WIDTH)
+                wav_data = io.BytesIO(audio_data.get_wav_data())
 
-                    # Write wav data to the temporary file as bytes.
-                    with open(self.temp_file, 'w+b') as f:
-                        f.write(wav_data.read())
+                # Write wav data to the temporary file as bytes.
+                with open(self.temp_file, 'w+b') as f:
+                    f.write(wav_data.read())
 
-                    # Read the transcription.
-                    result = self.audio_model.transcribe(self.temp_file, fp16=torch.cuda.is_available())
-                    text = result['text'].strip()
+                # Read the transcription.
+                result = self.audio_model.transcribe(self.temp_file, fp16=torch.cuda.is_available())
+                text = result['text'].strip()
 
-                    # If we detected a pause between recordings, add a new item to our transcription.
-                    # Otherwise edit the existing one.
-                    if phrase_complete:
-                        self.transcription.append(text)
-                    else:
-                        self.transcription[-1] = text
+                # If we detected a pause between recordings, add a new item to our transcription.
+                # Otherwise edit the existing one.
+                if phrase_complete:
+                    self.transcription.append(text)
+                else:
+                    self.transcription[-1] = text
 
-                    # Clear the console to reprint the updated transcription.
-                    os.system('cls' if os.name=='nt' else 'clear')
-                    for line in self.transcription:
-                        print(line)
-                    # Flush stdout.
-                    print('', end='', flush=True)
+                # Clear the console to reprint the updated transcription.
+                os.system('cls' if os.name=='nt' else 'clear')
+                for line in self.transcription:
+                    print(line)
+                # Flush stdout.
+                print('', end='', flush=True)
 
-                    # Infinite loops are bad for processors, must sleep.
-                    sleep(0.25)
-            except KeyboardInterrupt:
+                # Infinite loops are bad for processors, must sleep.
+            time.sleep(0.25)
+            if self._kill_thread:
                 break
 
         print("\n\nTranscription:")

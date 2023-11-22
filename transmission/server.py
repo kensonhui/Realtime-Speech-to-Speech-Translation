@@ -58,7 +58,9 @@ class AudioSocketServer:
         except KeyboardInterrupt:
             pass
 
+        self.transcriber.stop()
         self.serversocket.close()
 
-server = AudioSocketServer()
-server.start()
+if __name__ == "__main__":
+    server = AudioSocketServer()
+    server.start()
