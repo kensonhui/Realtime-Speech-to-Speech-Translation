@@ -41,6 +41,9 @@ class SpeechRecognitionModel:
     
     def __del__(self):
         self.__kill_worker__()
+    
+    def stop(self):
+        self.__kill_worker__()
 
     def start(self, SAMPLE_RATE, SAMPLE_WIDTH):
         self.thread = threading.Thread(
@@ -51,12 +54,10 @@ class SpeechRecognitionModel:
         self.thread.start()
         print("Finished starting thread")
         
-    def stop(self):
-        self.__kill_worker__()
-        
     def __kill_worker__(self):
         self._kill_thread = True
         self.thread.join()
+        self.thread = None
         
     def __worker__(self, SAMPLE_RATE, SAMPLE_WIDTH):
         # Do not call this method directly!!! You will block the main thread
