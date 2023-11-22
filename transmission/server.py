@@ -13,19 +13,12 @@ serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.bind(('', 4444))
 serversocket.listen(5)
 
-
-def callback(in_data, frame_count, time_info, status):
-    for s in read_list[1:]:
-        s.send(in_data)
-    return (None, pyaudio.paContinue)
-
-
-# start Recording
-stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK, stream_callback=callback)
+# start playing back audio
+stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, output=True, frames_per_buffer=CHUNK)
 # stream.start_stream()
 
 read_list = [serversocket]
-print("recording...")
+
 
 try:
     while True:
@@ -37,8 +30,11 @@ try:
                 print("Connection from", address)
             else:
                 data = s.recv(1024)
+                print(data)
+                stream.write(data)
                 if not data:
                     read_list.remove(s)
+                    print("Disconnection from", address)
 except KeyboardInterrupt:
     pass
 
