@@ -3,6 +3,7 @@ import socket
 import select
 from models.speech_recognition import SpeechRecognitionModel
 from queue import Queue
+import os
 
 class AudioSocketServer:
     FORMAT = pyaudio.paInt16
@@ -21,13 +22,36 @@ class AudioSocketServer:
         # TODO: For multiple concurrent users we will need more queues
         #   for now we only want one user to work first
         self.data_queue = Queue()
+        self.transcription = ""
         # Initialize the transcriber model
-        self.transcriber = SpeechRecognitionModel(data_queue=self.data_queue)
-        
+        self.transcriber = SpeechRecognitionModel(data_queue=self.data_queue, callback=self.handle_transcription)
+        self.read_list = []
+
+
     def __del__(self):
         self.audio.terminate()
         self.transcriber.stop()
         
+
+    def handle_transcription(self, transcription,):
+        os.system('cls' if os.name=='nt' else 'clear')
+        if isinstance(transcription, list):
+            concatenated_transcription = '\n'.join(transcription)
+        else:
+            concatenated_transcription = transcription
+
+        # Store the transcription string
+        self.transcription = concatenated_transcription
+
+        print(self.transcription, end='', flush=True)
+
+        transcription_bytes = self.transcription.encode('utf-8')
+
+
+        if(len(self.read_list) > 1):
+            self.read_list[1].sendall(transcription_bytes)
+
+
     def start(self):
         print("Start transcriber")
         self.transcriber.start(16000, 2)
@@ -50,9 +74,12 @@ class AudioSocketServer:
                         print("Connection from", address)
                     else:
                         data = s.recv(1024)
-                        self.data_queue.put(data) 
-                        # stream.write(data)
-                        if not data:
+
+                        if data:
+                            self.data_queue.put(data) 
+                            # stream.write(data)
+                            # s.sendall(data.encode())
+                        else:
                             self.read_list.remove(s)
                             print("Disconnection from", address)
         except KeyboardInterrupt:

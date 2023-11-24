@@ -2,6 +2,7 @@ import pyaudio
 import socket
 import sys
 import speech_recognition as sr
+import os
 
 class AudioSocketClient:
     FORMAT = pyaudio.paInt16
@@ -30,7 +31,7 @@ class AudioSocketClient:
     # Callback function for microphone input, fires when there is new data from the microphone
     def record_callback(self, _, audio: sr.AudioData):
         data = audio.get_raw_data()
-        print(data)
+        # print(data)
         # Sends data through the socket
         self.socket.send(data)
         
@@ -55,7 +56,8 @@ class AudioSocketClient:
         try:
             while True:
                 # This is where we will receive data from the server
-                data = self.socket.recv(self.CHUNK)
+                data = self.socket.recv(self.CHUNK).decode('utf-8')
+                os.system('cls' if os.name=='nt' else 'clear')
                 print(data)
         except KeyboardInterrupt:
             pass

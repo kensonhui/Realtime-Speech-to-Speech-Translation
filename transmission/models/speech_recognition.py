@@ -17,13 +17,15 @@ from sys import platform
 import threading
 
 class SpeechRecognitionModel:    
-    def __init__(self, data_queue, model_name = "base"):
+    def __init__(self, data_queue, callback=None, model_name = "base"):
         # The last time a recording was retrieved from the queue.
         self.phrase_time = None
         # Current raw audio bytes.
         self.last_sample = bytes()
         # Thread safe Queue for passing data from the threaded recording callback.
         self.data_queue = data_queue
+
+        self.callback = callback
        
         # How real the recording is in seconds.
         self.record_timeout = 2
@@ -98,12 +100,8 @@ class SpeechRecognitionModel:
                 else:
                     self.transcription[-1] = text
 
-                # Clear the console to reprint the updated transcription.
-                os.system('cls' if os.name=='nt' else 'clear')
-                for line in self.transcription:
-                    print(line)
-                # Flush stdout.
-                print('', end='', flush=True)
+                # TODO: make the callback take in the most recent line and not the entire transcription
+                self.callback(self.transcription)
 
                 # Infinite loops are bad for processors, must sleep.
             time.sleep(0.25)
