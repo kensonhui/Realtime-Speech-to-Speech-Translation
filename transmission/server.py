@@ -4,6 +4,8 @@ import select
 from models.speech_recognition import SpeechRecognitionModel
 from queue import Queue
 import os
+from typing import Dict
+import json
 
 class AudioSocketServer:
     FORMAT = pyaudio.paInt16
@@ -33,23 +35,11 @@ class AudioSocketServer:
         self.transcriber.stop()
         
 
-    def handle_transcription(self, transcription,):
-        os.system('cls' if os.name=='nt' else 'clear')
-        if isinstance(transcription, list):
-            concatenated_transcription = '\n'.join(transcription)
-        else:
-            concatenated_transcription = transcription
-
-        # Store the transcription string
-        self.transcription = concatenated_transcription
-
-        print(self.transcription, end='', flush=True)
-
-        transcription_bytes = self.transcription.encode('utf-8')
-
-
-        if(len(self.read_list) > 1):
-            self.read_list[1].sendall(transcription_bytes)
+    def handle_transcription(self, packet: Dict):
+        # Convert to JSON format string, then encode to utf-8
+        transcription_bytes = json.dumps(packet).encode('utf-8')
+        ## TODO: We're going to have to fix this so it is not hard coded to be the first one
+        self.read_list[1].sendall(transcription_bytes)
 
 
     def start(self):
@@ -77,8 +67,6 @@ class AudioSocketServer:
 
                         if data:
                             self.data_queue.put(data) 
-                            # stream.write(data)
-                            # s.sendall(data.encode())
                         else:
                             self.read_list.remove(s)
                             print("Disconnection from", address)

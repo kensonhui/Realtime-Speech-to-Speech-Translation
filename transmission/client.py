@@ -3,6 +3,7 @@ import socket
 import sys
 import speech_recognition as sr
 import os
+import json
 
 class AudioSocketClient:
     FORMAT = pyaudio.paInt16
@@ -21,7 +22,7 @@ class AudioSocketClient:
         #   here I'm being lazy
         self.source = sr.Microphone(sample_rate=16000)
         
-        print(f"Sample rate {self.source.SAMPLE_RATE}, Sample Width {self.source.SAMPLE_WIDTH}")
+        self.transcription = [""]
         
     def __del__(self):
         # Destroy Audio resources
@@ -42,6 +43,7 @@ class AudioSocketClient:
         
         # Connect to server
         self.socket.connect((ip, port))
+        print(f"Connected to IP {ip}, port {port}")
         
         with self.source:
             self.recorder.adjust_for_ambient_noise(self.source)
@@ -56,13 +58,27 @@ class AudioSocketClient:
         try:
             while True:
                 # This is where we will receive data from the server
-                data = self.socket.recv(self.CHUNK).decode('utf-8')
+                transcription_bytes = self.socket.recv(self.CHUNK).decode('utf-8')
+                packet = json.loads(transcription_bytes)
+                if packet["add"]:
+                    self.transcription.append(packet["text"])
+                else:
+                    self.transcription[-1] = packet["text"]
+                    
                 os.system('cls' if os.name=='nt' else 'clear')
-                print(data)
+                print(f"Transcribed from IP {ip}, port {port}")
+                print(f"Sample rate {self.source.SAMPLE_RATE}, Sample Width {self.source.SAMPLE_WIDTH}")
+                for line in self.transcription:
+                    print(line)
+                # Flush stdout.
+                print('', end='', flush=True)
         except KeyboardInterrupt:
             pass
         
         print("Finished recording")
+        print("\n\nTranscription:")
+        for line in self.transcription:
+            print(line)
         
         # Close Socket Connection
         self.socket.close()

@@ -101,7 +101,7 @@ class SpeechRecognitionModel:
                     self.transcription[-1] = text
 
                 # TODO: make the callback take in the most recent line and not the entire transcription
-                self.callback(self.transcription)
+                self.callback({ "add": phrase_complete, "text": text})
 
                 # Infinite loops are bad for processors, must sleep.
             time.sleep(0.25)
