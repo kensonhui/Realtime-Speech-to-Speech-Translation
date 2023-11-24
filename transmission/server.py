@@ -36,16 +36,16 @@ class AudioSocketServer:
         
 
     def handle_transcription(self, packet: Dict):
-        # Convert to JSON format string, then encode to utf-8
-        transcription_bytes = json.dumps(packet).encode('utf-8')
+        # Convert to compact JSON format string
+        compact_json_encoding = json.dumps(packet, separators=(',', ':'))
+        # Then encode to utf-8
+        transcription_bytes = compact_json_encoding.encode('utf-8')
         ## TODO: We're going to have to fix this so it is not hard coded to be the first one
         self.read_list[1].sendall(transcription_bytes)
 
 
     def start(self):
-        print("Start transcriber")
         self.transcriber.start(16000, 2)
-        
         print(f"Listening on port {self.PORT}")
         self.serversocket.bind(('', self.PORT))
         self.serversocket.listen(self.BACKLOG)

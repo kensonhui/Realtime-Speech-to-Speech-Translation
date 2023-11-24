@@ -42,8 +42,9 @@ class AudioSocketClient:
         # TODO: Seperate this out as thread based process
         
         # Connect to server
+        print(f"Attempting to connect to IP {ip}, port {port}")
         self.socket.connect((ip, port))
-        print(f"Connected to IP {ip}, port {port}")
+        print(f"Successfully connected to IP {ip}, port {port}")
         
         with self.source:
             self.recorder.adjust_for_ambient_noise(self.source)
