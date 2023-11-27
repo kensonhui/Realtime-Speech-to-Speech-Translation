@@ -1,1 +1,2 @@
+sounddevice
 speech_recognition
