@@ -5,7 +5,8 @@ from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5Hif
 class TextToSpeechModel:
     def __init__(self):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
+        print(f"Device: {self.device}")
+        self.processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts", normalize=True)
 
         self.model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
         self.vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
@@ -13,9 +14,9 @@ class TextToSpeechModel:
         self.vocoder.to(self.device)
     
     def load_speaker_embeddings(self):
-        # TODO: Load custom speaker embedding
-        embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
-        self.speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
+        self.speaker_embeddings = torch.load('models/embeddings.pt')
+        self.speaker_embeddings = self.speaker_embeddings.squeeze(1)
+
     
     def synthesise(self, text):
         # Call load_speaker_embeddings before generating
