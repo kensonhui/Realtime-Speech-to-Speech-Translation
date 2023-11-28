@@ -3,7 +3,10 @@ import socket
 import sys
 import speech_recognition as sr
 import os
+import numpy as np
 import json
+import sounddevice as sd
+import pickle
 
 class AudioSocketClient:
     FORMAT = pyaudio.paInt16
@@ -36,7 +39,6 @@ class AudioSocketClient:
         # Sends data through the socket
         self.socket.send(data)
         
-    
     # Starts the event loop
     def start(self, ip, port):
         # TODO: Seperate this out as thread based process
@@ -55,26 +57,18 @@ class AudioSocketClient:
                                            phrase_time_limit=2)
          ## Open audio as input from microphone
         print("Started recording...")
-        
-        try:
-            while True:
-                # This is where we will receive data from the server
-                transcription_bytes = self.socket.recv(self.CHUNK).decode('utf-8')
-                packet = json.loads(transcription_bytes)
-                if packet["add"]:
-                    self.transcription.append(packet["text"])
-                else:
-                    self.transcription[-1] = packet["text"]
+        with sd.OutputStream(samplerate=16000, dtype=np.float32) as audio_output:
+            try:
+                while True:
+                    # This is where we will receive data from the server
+                    packet = self.socket.recv(self.CHUNK)
+                    audio_chunk = np.frombuffer(packet, dtype=np.float32)
                     
-                os.system('cls' if os.name=='nt' else 'clear')
-                print(f"Transcribed from IP {ip}, port {port}")
-                print(f"Sample rate {self.source.SAMPLE_RATE}, Sample Width {self.source.SAMPLE_WIDTH}")
-                for line in self.transcription:
-                    print(line)
-                # Flush stdout.
-                print('', end='', flush=True)
-        except KeyboardInterrupt:
-            pass
+                    # Speech T5 Output always has a sample rate of 16000
+                    audio_output.write(audio_chunk)
+                    
+            except KeyboardInterrupt:
+                pass
         
         print("Finished recording")
         print("\n\nTranscription:")

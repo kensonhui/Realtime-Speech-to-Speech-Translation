@@ -1,12 +1,16 @@
+import json
+import pickle
 import pyaudio
+import os
 import socket
 import select
+import sys
+import torch
+import threading
 from models.speech_recognition import SpeechRecognitionModel
+from models.text_to_speech import TextToSpeechModel
 from queue import Queue
-import os
 from typing import Dict
-import json
-
 class AudioSocketServer:
     FORMAT = pyaudio.paInt16
     CHANNELS = 1
@@ -24,25 +28,32 @@ class AudioSocketServer:
         # TODO: For multiple concurrent users we will need more queues
         #   for now we only want one user to work first
         self.data_queue = Queue()
-        self.transcription = ""
+        
+        # String that holds the last completed phrase, we feed this into texttospeech
+        self.last_phrase = ""
         # Initialize the transcriber model
-        self.transcriber = SpeechRecognitionModel(data_queue=self.data_queue, callback=self.handle_transcription)
+        self.transcriber = SpeechRecognitionModel(data_queue=self.data_queue, 
+                                                  callback=self.handle_transcription)
+        self.text_to_speech = TextToSpeechModel(callback_function=self.handle_synthesize)
+        self.text_to_speech.load_speaker_embeddings()
         self.read_list = []
 
 
     def __del__(self):
         self.audio.terminate()
         self.transcriber.stop()
+        self.serversocket.close()
         
 
     def handle_transcription(self, packet: Dict):
-        # Convert to compact JSON format string
-        compact_json_encoding = json.dumps(packet, separators=(',', ':'))
-        # Then encode to utf-8
-        transcription_bytes = compact_json_encoding.encode('utf-8')
-        ## TODO: We're going to have to fix this so it is not hard coded to be the first one
-        self.read_list[1].sendall(transcription_bytes)
-
+        if packet["add"]:
+            self.text_to_speech.synthesise(self.last_phrase)
+            print(f"put {self.last_phrase} into queue")
+        self.last_phrase = packet["text"]
+    
+    def handle_synthesize(self, audio: torch.Tensor):
+        print("got audio")
+        self.stream_numpy_array_audio(audio)
 
     def start(self):
         self.transcriber.start(16000, 2)
@@ -75,6 +86,12 @@ class AudioSocketServer:
 
         self.transcriber.stop()
         self.serversocket.close()
+        
+    def stream_numpy_array_audio(self, audio):
+        # TODO: Make this asyncronhous
+        for i in range(0, len(audio), self.CHUNK):
+            chunk = audio[i:i + self.CHUNK]
+            self.read_list[1].send(chunk.tobytes())
 
 if __name__ == "__main__":
     server = AudioSocketServer()

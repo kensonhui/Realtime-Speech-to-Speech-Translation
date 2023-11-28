@@ -33,7 +33,7 @@ class SpeechRecognitionModel:
         self.phrase_timeout = 3
         
         self.temp_file = NamedTemporaryFile().name
-        self.transcription = ['']
+        self.transcription = ''
         
         print(f"Loading model whisper-{model_name}")
         self.audio_model = whisper.load_model(model_name)
@@ -61,16 +61,23 @@ class SpeechRecognitionModel:
         self.thread.join()
         self.thread = None
         
+    def __has_time_elapsed_past_threshold__(self, time1, time2):
+        return time1 - time2 > timedelta(seconds=self.phrase_timeout)
+        
     def __worker__(self, SAMPLE_RATE, SAMPLE_WIDTH):
+        flushed = False
         # Do not call this method directly!!! You will block the main thread
         while True:
             now = datetime.utcnow()
+            
             # Pull raw recorded audio from the queue.
             if not self.data_queue.empty():
+                flushed = False
                 phrase_complete = False
                 # If enough time has passed between recordings, consider the phrase complete.
                 # Clear the current working audio buffer to start over with the new data.
                 if self.phrase_time and now - self.phrase_time > timedelta(seconds=self.phrase_timeout):
+                    
                     self.last_sample = bytes()
                     phrase_complete = True
                 # This is the last time we received new audio data from the queue.
@@ -96,14 +103,18 @@ class SpeechRecognitionModel:
                 # If we detected a pause between recordings, add a new item to our transcription.
                 # Otherwise edit the existing one.
                 if phrase_complete:
-                    self.transcription.append(text)
-                else:
-                    self.transcription[-1] = text
+                    self.callback({ "add": phrase_complete, "text": text })
+
+                self.transcription = text
 
                 # TODO: make the callback take in the most recent line and not the entire transcription
-                self.callback({ "add": phrase_complete, "text": text})
 
                 # Infinite loops are bad for processors, must sleep.
+            if not flushed and self.phrase_time and now - self.phrase_time > timedelta(seconds=self.phrase_timeout) * 2:
+                flushed = True
+                # Clear it's been a while since the last input
+                self.callback({ "add": True, "text": ""})
+            
             time.sleep(0.25)
             if self._kill_thread:
                 break

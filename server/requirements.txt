@@ -1,6 +1,7 @@
 ## Server packages
 pyaudio
 pycryptodome
+pickle
 
 # Audio model packages
 datasets
@@ -8,6 +9,8 @@ librosa
 numpy
 sentencepiece
 transformers
+
+
 
 # Whisper Audio RT
 pyaudio
