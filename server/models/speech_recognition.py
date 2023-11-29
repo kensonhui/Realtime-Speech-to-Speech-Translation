@@ -33,14 +33,16 @@ class SpeechRecognitionModel:
         # How real the recording is in seconds.
         self.record_timeout = 2
         # How much empty space between recordings before new lines in transcriptions
-        self.phrase_timeout = 3
+        self.phrase_timeout = 0.5
         
         self.temp_file = NamedTemporaryFile().name
         self.transcription = ''
         self.last_phrase = None
         
         print(f"Loading model whisper-{model_name}")
-        self.audio_model = whisper.load_model(model_name)
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        print(f"Device used for Speech Recognition: {self.device}")
+        self.audio_model = whisper.load_model(model_name, device=self.device)
         print("Finished loading model")
         self.thread = None
         self._kill_thread = False
@@ -117,13 +119,15 @@ class SpeechRecognitionModel:
                 # TODO: make the callback take in the most recent line and not the entire transcription
 
                 # Infinite loops are bad for processors, must sleep.
-            if (not flushed) and self.phrase_time and now - self.phrase_time > timedelta(seconds=self.phrase_timeout) * 2:
+            if (not flushed) and self.phrase_time and now - self.phrase_time > timedelta(seconds=self.phrase_timeout):
                 flushed = True
+                self.last_sample = bytes()
+                self.phrase_time = None
                 # Clear it's been a while since the last input
                 self.final_callback(text)
                 
             
-            time.sleep(0.25)
+            time.sleep(0.05)
             if self._kill_thread:
                 break
 

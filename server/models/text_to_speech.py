@@ -9,7 +9,8 @@ class TextToSpeechModel:
     def __init__(self, callback_function):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         print(f"Device used for TextToSpeech: {self.device}")
-        self.processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
+        self.processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts",
+                                                           normalize=True)
 
         self.model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
         self.vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
@@ -57,6 +58,5 @@ class TextToSpeechModel:
                 self.task_queue.task_done()
             if self.__kill_thread:
                 break
-            time.sleep(25)
-        
+            time.sleep(0.05)
         

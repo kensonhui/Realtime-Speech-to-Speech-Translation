@@ -30,7 +30,8 @@ class AudioSocketServer:
         self.data_queue = Queue()
         
         # Initialize the transcriber model
-        self.transcriber = SpeechRecognitionModel(data_queue=self.data_queue, 
+        self.transcriber = SpeechRecognitionModel(model_name="large-v3",
+                                                  data_queue=self.data_queue, 
                                                   generation_callback=self.handle_generation,
                                                   final_callback=self.handle_transcription)
         self.text_to_speech = TextToSpeechModel(callback_function=self.handle_synthesize)
@@ -45,12 +46,11 @@ class AudioSocketServer:
         
     def handle_generation(self, packet: Dict):
         print (f"Got packet {packet}")
+        
     def handle_transcription(self, packet: str):
         self.text_to_speech.synthesise(packet)
-        print(f"Put {packet} into queue")
     
     def handle_synthesize(self, audio: torch.Tensor):
-        print("got audio")
         self.stream_numpy_array_audio(audio)
 
     def start(self):
