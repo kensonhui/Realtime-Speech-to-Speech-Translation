@@ -1,4 +1,5 @@
 import torch
+import time
 import threading
 from datasets import load_dataset
 from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
@@ -21,7 +22,12 @@ class TextToSpeechModel:
         self.callback_function = callback_function
         
         # Run in daemon so it self exits
+        self.__kill_thread = False
         self.thread = threading.Thread(target=self.worker, daemon=True).start()
+    
+    def __deL__(self):
+        self.__kill_thread = True
+        self.thread.join()
 
     def load_speaker_embeddings(self):
         # TODO: Load custom speaker embedding
@@ -37,16 +43,20 @@ class TextToSpeechModel:
     # Don't call this code directly!
     def worker(self):
         # TODO: Processor running in loop, best if we do a timeout
-        if not self.task_queue.empty():
-            text = self.task_queue.get(block=True, timeout=1)
-            print(f"synthesize : {text}")
-            inputs = self.processor(text=text, return_tensors="pt")
-            speech = self.model.generate_speech(
-                inputs["input_ids"].to(self.device), 
-                self.speaker_embeddings.to(self.device), 
-                vocoder=self.vocoder
-            )
-            self.callback_function(speech.cpu())
-            self.task_queue.task_done()
+        while True:
+            if not self.task_queue.empty():
+                text = self.task_queue.get()
+                print(f"synthesize : {text}")
+                inputs = self.processor(text=text, return_tensors="pt")
+                speech = self.model.generate_speech(
+                    inputs["input_ids"].to(self.device), 
+                    self.speaker_embeddings.to(self.device), 
+                    vocoder=self.vocoder
+                )
+                self.callback_function(speech.cpu())
+                self.task_queue.task_done()
+            if self.__kill_thread:
+                break
+            time.sleep(25)
         
         

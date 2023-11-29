@@ -17,7 +17,7 @@ from sys import platform
 import threading
 
 class SpeechRecognitionModel:    
-    def __init__(self, data_queue, callback=None, model_name = "base"):
+    def __init__(self, data_queue, generation_callback=lambda *args: None, final_callback=lambda *args: None, model_name = "base"):
         # The last time a recording was retrieved from the queue.
         self.phrase_time = None
         # Current raw audio bytes.
@@ -25,7 +25,10 @@ class SpeechRecognitionModel:
         # Thread safe Queue for passing data from the threaded recording callback.
         self.data_queue = data_queue
 
-        self.callback = callback
+        # Callback to get real-time transcription results
+        self.generation_callback = generation_callback
+        # Callback for final transcription results
+        self.final_callback = final_callback
        
         # How real the recording is in seconds.
         self.record_timeout = 2
@@ -34,6 +37,7 @@ class SpeechRecognitionModel:
         
         self.temp_file = NamedTemporaryFile().name
         self.transcription = ''
+        self.last_phrase = None
         
         print(f"Loading model whisper-{model_name}")
         self.audio_model = whisper.load_model(model_name)
@@ -102,18 +106,22 @@ class SpeechRecognitionModel:
 
                 # If we detected a pause between recordings, add a new item to our transcription.
                 # Otherwise edit the existing one.
-                if phrase_complete:
-                    self.callback({ "add": phrase_complete, "text": text })
+                self.generation_callback({ "add": phrase_complete, "text": text})
+                if phrase_complete and self.last_phrase:
+                    self.final_callback(self.last_phrase)
 
+                
                 self.transcription = text
+                self.last_phrase = text
 
                 # TODO: make the callback take in the most recent line and not the entire transcription
 
                 # Infinite loops are bad for processors, must sleep.
-            if not flushed and self.phrase_time and now - self.phrase_time > timedelta(seconds=self.phrase_timeout) * 2:
+            if (not flushed) and self.phrase_time and now - self.phrase_time > timedelta(seconds=self.phrase_timeout) * 2:
                 flushed = True
                 # Clear it's been a while since the last input
-                self.callback({ "add": True, "text": ""})
+                self.final_callback(text)
+                
             
             time.sleep(0.25)
             if self._kill_thread:

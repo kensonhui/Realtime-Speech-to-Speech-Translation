@@ -66,6 +66,7 @@ class AudioSocketClient:
                     
                     # Speech T5 Output always has a sample rate of 16000
                     audio_output.write(audio_chunk)
+                    print(audio_chunk)
                     
             except KeyboardInterrupt:
                 pass
