@@ -35,8 +35,8 @@ class AudioSocketClient:
     # Callback function for microphone input, fires when there is new data from the microphone
     def record_callback(self, _, audio: sr.AudioData):
         data = audio.get_raw_data()
-        # print(data)
-        # Sends data through the socket
+        print("send audio data")
+        
         self.socket.send(data)
         
     # Starts the event loop
@@ -57,16 +57,16 @@ class AudioSocketClient:
                                            phrase_time_limit=2)
          ## Open audio as input from microphone
         print("Started recording...")
-        with sd.OutputStream(samplerate=16000, dtype=np.float32) as audio_output:
+        with sd.OutputStream(samplerate=16000, channels=1, dtype=np.float32) as audio_output:
             try:
                 while True:
                     # This is where we will receive data from the server
                     packet = self.socket.recv(self.CHUNK)
                     audio_chunk = np.frombuffer(packet, dtype=np.float32)
                     
+                    print("receive audio data")
                     # Speech T5 Output always has a sample rate of 16000
                     audio_output.write(audio_chunk)
-                    print(audio_chunk)
                     
             except KeyboardInterrupt:
                 pass
@@ -81,4 +81,4 @@ class AudioSocketClient:
         
         
 client = AudioSocketClient()
-client.start('127.0.0.1', 4444)
+client.start('172.174.109.109', 4444)
