@@ -11,10 +11,18 @@ import pickle
 class AudioSocketClient:
     FORMAT = pyaudio.paInt16
     CHANNELS = 1
-    RATE = 44100
+    RATE = 16000
     CHUNK = 4096
     
     def __init__(self) -> None:
+        self.MICROPHONE_INDEX = 2
+        self.VIRTUAL_MICROPHONE_INDEX = 1
+        # TODO: Move this to a main function
+        print(sd.query_devices())
+        print(f"Using Microphone index of {self.MICROPHONE_INDEX} and BlackHole index of {self.BLACKHOLE_INDEX}. Is this correct?")
+        if input("y/[n]") != "y":
+            return
+            
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.recorder = sr.Recognizer()
         self.recorder.energy_threshold = 1000
@@ -23,9 +31,10 @@ class AudioSocketClient:
         
         # If you're on Linux you'll need to actually list the microphone devices
         #   here I'm being lazy
-        self.source = sr.Microphone(sample_rate=16000)
+        self.source = sr.Microphone(sample_rate=self.RATE)
         
         self.transcription = [""]
+        
         
     def __del__(self):
         # Destroy Audio resources
@@ -57,7 +66,11 @@ class AudioSocketClient:
                                            phrase_time_limit=2)
          ## Open audio as input from microphone
         print("Started recording...")
-        with sd.OutputStream(samplerate=16000, channels=1, dtype=np.float32) as audio_output:
+        with sd.OutputStream(samplerate=16000, 
+                       channels=1, 
+                       dtype=np.float32,
+                       device=self.VIRTUAL_MICROPHONE_INDEX,
+                       ) as audio_output:
             try:
                 while True:
                     # This is where we will receive data from the server

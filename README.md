@@ -1,6 +1,6 @@
 # Speech To Text To Speech Translation
 
-### Installation Instructions:
+### Server Installation Instructions:
 
 Make sure your XCode CLI tools are fully updated!
 https://developer.apple.com/forums/thread/677124
@@ -37,6 +37,16 @@ Install Project Packages:
 Install Jupyter and Pylance extensions on VSCode.
 
 Enjoy 😎😎😎😎😎😎😎
+
+### Client Installation
+
+Install Jack either via tar or brew
+https://jackaudio.org/downloads/
+or
+```brew install jack``` 
+
+Install requirements.txt in the clients folder
+```pip install -r requirements.txt```
 
 
 ## speech.ipynb
