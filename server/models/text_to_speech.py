@@ -31,9 +31,9 @@ class TextToSpeechModel:
         self.thread.join()
 
     def load_speaker_embeddings(self):
-        # TODO: Load custom speaker embedding
-        embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
-        self.speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
+        self.speaker_embeddings = torch.load('models/embeddings.pt')
+        self.speaker_embeddings = self.speaker_embeddings.squeeze(1)
+
     
     def synthesise(self, text):
         # Call load_speaker_embeddings before generating

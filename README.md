@@ -29,7 +29,7 @@ Install Transformers:
 ```conda install -c huggingface transformers```
 
 Install pyaudio:
-```conda install pyaudio```
+```pip install pyaudio```
 
 Install Project Packages:
 ```pip install -r requirements.txt```

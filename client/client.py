@@ -16,10 +16,10 @@ class AudioSocketClient:
     
     def __init__(self) -> None:
         self.MICROPHONE_INDEX = 2
-        self.VIRTUAL_MICROPHONE_INDEX = 1
+        self.VIRTUAL_MICROPHONE_INDEX = 3
         # TODO: Move this to a main function
         print(sd.query_devices())
-        print(f"Using Microphone index of {self.MICROPHONE_INDEX} and BlackHole index of {self.BLACKHOLE_INDEX}. Is this correct?")
+        print(f"Using Microphone index of {self.MICROPHONE_INDEX} and BlackHole index of {self.VIRTUAL_MICROPHONE_INDEX}. Is this correct?")
         if input("y/[n]") != "y":
             return
             
@@ -31,7 +31,7 @@ class AudioSocketClient:
         
         # If you're on Linux you'll need to actually list the microphone devices
         #   here I'm being lazy
-        self.source = sr.Microphone(sample_rate=self.RATE)
+        self.source = sr.Microphone(device_index=self.MICROPHONE_INDEX, sample_rate=self.RATE)
         
         self.transcription = [""]
         
