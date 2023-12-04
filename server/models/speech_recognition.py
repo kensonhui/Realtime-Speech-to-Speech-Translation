@@ -11,7 +11,7 @@ import threading
 class SpeechRecognitionModel:    
     def __init__(self, data_queue, generation_callback=lambda *args: None, final_callback=lambda *args: None, model_name="base"):
         # The last time a recording was retrieved from the queue.
-        self.phrase_time = None
+        self.phrase_time = datetime.utcnow()
         # Current raw audio bytes.
         self.last_sample = bytes()
         # Thread safe Queue for passing data from the threaded recording callback.
@@ -45,29 +45,45 @@ class SpeechRecognitionModel:
     def __worker__(self, sample_rate, sample_width):
         while not self._kill_thread:
             now = datetime.utcnow()
-            phrase_complete = self.__update_phrase_time__(now)
+            self.__flush_last_phrase__(now)
             if not self.data_queue.empty():
+                phrase_complete = self.__update_phrase_time__(now)
                 self.__concatenate_new_audio__()
                 self.__transcribe_audio__(sample_rate, sample_width, phrase_complete)
             time.sleep(0.05)
+            
 
     def __update_phrase_time__(self, current_time):
         phrase_complete = False
         # If enough time has passed between recordings, consider the phrase complete.
         #   Clear the current working audio buffer to start over with the new data.
         if self.phrase_time and current_time - self.phrase_time > timedelta(seconds=self.phrase_timeout):
-            if self.recent_transcription:
-                self.final_callback(self.recent_transcription)
-                self.recent_transcription = ""
+            self.phrase_time = current_time
             self.last_sample = bytes()
             phrase_complete = True
-        self.phrase_time = current_time
         return phrase_complete
+    
+    def __flush_last_phrase__(self, current_time) -> None:
+        """ 
+        Flush the last phrase if no audio has been sent in a while.
+        If there is anything to flush, we'll update the phrase time.
+        """
+        if self.phrase_time and current_time - self.phrase_time > timedelta(seconds=self.phrase_timeout):
+            if self.recent_transcription:
+                print(f"Flush {self.recent_transcription}")
+                self.final_callback(self.recent_transcription)
+                self.recent_transcription = ""
+                  
+                self.phrase_time = current_time
+                self.last_sample = bytes()
+                phrase_complete = True
 
     def __concatenate_new_audio__(self):
+        concat_start_time = time.time()
         while not self.data_queue.empty():
             data = self.data_queue.get()
             self.last_sample += data
+        
 
     def __transcribe_audio__(self, sample_rate, sample_width, phrase_complete):
         try:
@@ -79,12 +95,13 @@ class SpeechRecognitionModel:
                 result = self.audio_model.transcribe(audio, fp16=torch.cuda.is_available())
                 end_time = time.time()
 
-            text = result['text'].strip()
-            if text:
-                self.generation_callback({"add": phrase_complete, "text": text, "transcribe_time": end_time - start_time})
-                if phrase_complete:
-                    self.final_callback(self.recent_transcription)
-                self.recent_transcription = text
+                text = result['text'].strip()
+                if text:
+                    self.generation_callback({"add": phrase_complete, "text": text, "transcribe_time": end_time - start_time})
+                    if phrase_complete and self.recent_transcription:
+                        print(f"Phrase complete: {self.recent_transcription}")
+                        self.final_callback(self.recent_transcription)
+                    self.recent_transcription = text
         except Exception as e:
             print(f"Error during transcription: {e}")
 

@@ -30,7 +30,7 @@ class AudioSocketServer:
         self.data_queue = Queue()
         
         # Initialize the transcriber model
-        self.transcriber = SpeechRecognitionModel(model_name="large-v3",
+        self.transcriber = SpeechRecognitionModel(model_name="large-v2",
                                                   data_queue=self.data_queue, 
                                                   generation_callback=self.handle_generation,
                                                   final_callback=self.handle_transcription)
@@ -48,6 +48,7 @@ class AudioSocketServer:
         print (f"{packet}")
         
     def handle_transcription(self, packet: str):
+        print(f"Added {packet} to synthesize task queue")
         self.text_to_speech.synthesise(packet)
     
     def handle_synthesize(self, audio: torch.Tensor):
@@ -81,9 +82,13 @@ class AudioSocketServer:
                             print("Disconnection from", address)
         except KeyboardInterrupt:
             pass
-
+        
+        print("Performing server cleanup")
+        self.audio.terminate()
         self.transcriber.stop()
+        self.serversocket.shutdown(socket.SHUT_RDWR)
         self.serversocket.close()
+        print("Sockets cleaned up")
         
     def stream_numpy_array_audio(self, audio):
         # TODO: Make this asyncronhous

@@ -31,7 +31,7 @@ class TextToSpeechModel:
         self.thread.join()
 
     def load_speaker_embeddings(self):
-        self.speaker_embeddings = torch.load('models/kenson_embeddings.pt')
+        self.speaker_embeddings = torch.load('models/emma_embeddings.pt')
         self.speaker_embeddings = self.speaker_embeddings.squeeze(1)
 
     
