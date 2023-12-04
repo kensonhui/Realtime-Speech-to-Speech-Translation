@@ -7,6 +7,7 @@ import numpy as np
 import json
 import sounddevice as sd
 import pickle
+import time
 
 class AudioSocketClient:
     FORMAT = pyaudio.paInt16
@@ -14,12 +15,14 @@ class AudioSocketClient:
     RATE = 16000
     CHUNK = 4096
     
+    # Used for Speech Recognition library
+    PHRASE_TIME_LIMIT = 1.5
+    
     def __init__(self) -> None:
-        self.MICROPHONE_INDEX = 3
-        self.VIRTUAL_MICROPHONE_INDEX = 5
+        self.MICROPHONE_INDEX, self.VIRTUAL_MICROPHONE_INDEX = sd.default.device
         # TODO: Move this to a main function
         print(sd.query_devices())
-        print(f"Using Microphone index of {self.MICROPHONE_INDEX} and BlackHole index of {self.VIRTUAL_MICROPHONE_INDEX}.")
+        print(f"Using input index of: {self.MICROPHONE_INDEX}\n output index of: {self.VIRTUAL_MICROPHONE_INDEX}.")
         if input(" Is this correct?\n y/[n]: ") != "y":
             self.MICROPHONE_INDEX = int(input("Type the index of the physical microphone: "))
             self.VIRTUAL_MICROPHONE_INDEX = int(input("Type the index of the output microphone: "))
@@ -45,7 +48,7 @@ class AudioSocketClient:
     # Callback function for microphone input, fires when there is new data from the microphone
     def record_callback(self, _, audio: sr.AudioData):
         data = audio.get_raw_data()
-        print("send audio data")
+        print(f"send audio data {time.time()}")
         
         self.socket.send(data)
         
@@ -64,7 +67,7 @@ class AudioSocketClient:
         # Start microphone
         self.recorder.listen_in_background(self.source, 
                                            self.record_callback,
-                                           phrase_time_limit=0.5)
+                                           phrase_time_limit=self.PHRASE_TIME_LIMIT)
          ## Open audio as input from microphone
         print("Started recording...")
         with sd.OutputStream(samplerate=16000, 
