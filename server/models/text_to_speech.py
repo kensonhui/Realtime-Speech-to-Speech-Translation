@@ -31,7 +31,7 @@ class TextToSpeechModel:
         self.thread.join()
 
     def load_speaker_embeddings(self):
-        self.speaker_embeddings = torch.load('models/embeddings.pt')
+        self.speaker_embeddings = torch.load('models/emma_embeddings.pt')
         self.speaker_embeddings = self.speaker_embeddings.squeeze(1)
 
     
@@ -47,13 +47,16 @@ class TextToSpeechModel:
         while True:
             if not self.task_queue.empty():
                 text = self.task_queue.get()
-                print(f"synthesize : {text}")
+                
                 inputs = self.processor(text=text, return_tensors="pt")
+                start_time = time.time()
                 speech = self.model.generate_speech(
                     inputs["input_ids"].to(self.device), 
                     self.speaker_embeddings.to(self.device), 
                     vocoder=self.vocoder
                 )
+                end_time = time.time()
+                print(f"synthesize : {text}. Time: {end_time - start_time}")
                 self.callback_function(speech.cpu())
                 self.task_queue.task_done()
             if self.__kill_thread:
