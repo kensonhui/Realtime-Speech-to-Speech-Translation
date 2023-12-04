@@ -17,7 +17,12 @@ from sys import platform
 import threading
 
 class SpeechRecognitionModel:    
-    def __init__(self, data_queue, generation_callback=lambda *args: None, final_callback=lambda *args: None, model_name = "base"):
+    def __init__(self, 
+                 data_queue, 
+                 generation_callback=lambda *args: None, 
+                 final_callback=lambda *args: None, 
+                 model_name = "base"
+                 ):
         # The last time a recording was retrieved from the queue.
         self.phrase_time = None
         # Current raw audio bytes.
@@ -30,8 +35,6 @@ class SpeechRecognitionModel:
         # Callback for final transcription results
         self.final_callback = final_callback
        
-        # How real the recording is in seconds.
-        self.record_timeout = 2
         # How much empty space between recordings before new lines in transcriptions
         self.phrase_timeout = 0.5
         
@@ -103,18 +106,26 @@ class SpeechRecognitionModel:
                     f.write(wav_data.read())
 
                 # Read the transcription.
+                start_time = time.time()
                 result = self.audio_model.transcribe(self.temp_file, fp16=torch.cuda.is_available())
+                end_time = time.time()
                 text = result['text'].strip()
-
-                # If we detected a pause between recordings, add a new item to our transcription.
-                # Otherwise edit the existing one.
-                self.generation_callback({ "add": phrase_complete, "text": text})
-                if phrase_complete and self.last_phrase:
-                    self.final_callback(self.last_phrase)
-
                 
-                self.transcription = text
-                self.last_phrase = text
+                if text:
+                    # If we detected a pause between recordings, add a new item to our transcription.
+                    # Otherwise edit the existing one.
+                    self.generation_callback({ 
+                                              "add": phrase_complete, 
+                                              "text": text, 
+                                              "transcribe_time": end_time-start_time,
+                                              "audio_length_time": self.phrase_time.timestamp() - start_time
+                                              })
+                    if phrase_complete and self.last_phrase:
+                        self.final_callback(self.last_phrase)
+
+                    
+                    self.transcription = text
+                    self.last_phrase = text
 
                 # TODO: make the callback take in the most recent line and not the entire transcription
 
@@ -130,7 +141,3 @@ class SpeechRecognitionModel:
             time.sleep(0.05)
             if self._kill_thread:
                 break
-
-        print("\n\nTranscription:")
-        for line in self.transcription:
-            print(line)

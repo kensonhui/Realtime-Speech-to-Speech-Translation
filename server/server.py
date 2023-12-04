@@ -45,7 +45,7 @@ class AudioSocketServer:
         self.serversocket.close()
         
     def handle_generation(self, packet: Dict):
-        print (f"Got packet {packet}")
+        print (f"{packet}")
         
     def handle_transcription(self, packet: str):
         self.text_to_speech.synthesise(packet)
