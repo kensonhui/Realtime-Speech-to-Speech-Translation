@@ -15,13 +15,14 @@ class AudioSocketClient:
     CHUNK = 4096
     
     def __init__(self) -> None:
-        self.MICROPHONE_INDEX = 2
-        self.VIRTUAL_MICROPHONE_INDEX = 3
+        self.MICROPHONE_INDEX = 3
+        self.VIRTUAL_MICROPHONE_INDEX = 5
         # TODO: Move this to a main function
         print(sd.query_devices())
-        print(f"Using Microphone index of {self.MICROPHONE_INDEX} and BlackHole index of {self.VIRTUAL_MICROPHONE_INDEX}. Is this correct?")
-        if input("y/[n]") != "y":
-            return
+        print(f"Using Microphone index of {self.MICROPHONE_INDEX} and BlackHole index of {self.VIRTUAL_MICROPHONE_INDEX}.")
+        if input(" Is this correct?\n y/[n]: ") != "y":
+            self.MICROPHONE_INDEX = int(input("Type the index of the physical microphone: "))
+            self.VIRTUAL_MICROPHONE_INDEX = int(input("Type the index of the output microphone: "))
             
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.recorder = sr.Recognizer()
@@ -63,7 +64,7 @@ class AudioSocketClient:
         # Start microphone
         self.recorder.listen_in_background(self.source, 
                                            self.record_callback,
-                                           phrase_time_limit=2)
+                                           phrase_time_limit=0.5)
          ## Open audio as input from microphone
         print("Started recording...")
         with sd.OutputStream(samplerate=16000, 
