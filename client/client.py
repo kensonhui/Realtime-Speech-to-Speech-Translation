@@ -95,12 +95,13 @@ class AudioSocketClient:
                         audio_chunk = np.frombuffer(packet, dtype=np.float32)
                         self.time_last_received = time.time()
                         
-                        # Speech T5 Output always has a sample rate of 16000
-                        audio_output.write(audio_chunk)
-                        
                         if not self.time_first_received:
                             print(f"First audio packet - time: {self.time_last_received - self.time_last_sent}")
                             self.time_first_received = self.time_last_received 
+                        
+                        # Speech T5 Output always has a sample rate of 16000
+                        audio_output.write(audio_chunk)
+                        
             except ConnectionResetError:
                 print("Server connection reset - shutting down client")
             
