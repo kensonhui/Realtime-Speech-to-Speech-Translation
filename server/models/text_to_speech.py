@@ -35,18 +35,19 @@ class TextToSpeechModel:
         self.speaker_embeddings = self.speaker_embeddings.squeeze(1)
 
     
-    def synthesise(self, text):
+    def synthesise(self, text, client_socket):
         # Call load_speaker_embeddings before generating
         if self.speaker_embeddings is None:
             raise Exception("TextToSpeech: Load speaker embeddings before synthesizing")
-        self.task_queue.put(text)
+        task = (client_socket, text)
+        self.task_queue.put(task)
         
     # Don't call this code directly!
     def worker(self):
         # TODO: Processor running in loop, best if we do a timeout
         while True:
             if not self.task_queue.empty():
-                text = self.task_queue.get()
+                client, text = self.task_queue.get()
                 
                 inputs = self.processor(text=text, return_tensors="pt")
                 start_time = time.time()
@@ -57,7 +58,7 @@ class TextToSpeechModel:
                 )
                 end_time = time.time()
                 print(f"synthesize : {text}. Time: {end_time - start_time}")
-                self.callback_function(speech.cpu())
+                self.callback_function(speech.cpu(), client)
                 self.task_queue.task_done()
             if self.__kill_thread:
                 break
