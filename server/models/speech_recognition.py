@@ -21,11 +21,15 @@ class SpeechRecognitionModel:
         # Callback for final transcription results
         self.final_callback = final_callback
         # How much empty space between recordings before new lines in transcriptions
-        self.phrase_timeout = 0.5
+        self.phrase_timeout = 1
 
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         print(f"Loading model whisper-{model_name} on {self.device}")
+        
+        
         self.audio_model = whisper.load_model(model_name, device=self.device)
+        self.decoding_options : dict = {"task": "translate"}
+        print(f"Whisper DecodingOptions: {self.decoding_options}")
         self.thread = None
         self._kill_thread = False
 
@@ -92,7 +96,10 @@ class SpeechRecognitionModel:
             with sf.SoundFile(wav_data, mode='r') as sound_file:
                 audio = sound_file.read(dtype='float32')
                 start_time = time.time()
-                result = self.audio_model.transcribe(audio, fp16=torch.cuda.is_available())
+                
+                result = self.audio_model.transcribe(audio, 
+                                                     fp16=torch.cuda.is_available(),
+                                                     **self.decoding_options)
                 end_time = time.time()
 
                 text = result['text'].strip()

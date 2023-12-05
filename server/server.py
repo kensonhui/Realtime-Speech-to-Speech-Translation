@@ -22,15 +22,19 @@ class AudioSocketServer:
     #   For socket.listen()
     BACKLOG = 5 
     
-    def __init__(self):
+    def __init__(self, whisper_model):
         self.audio = pyaudio.PyAudio()
         self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        # Let kernel know we want to reuse the same port for restarting the server
+        #   in quick succession
+        self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
         # TODO: For multiple concurrent users we will need more queues
         #   for now we only want one user to work first
         self.data_queue = Queue()
         
         # Initialize the transcriber model
-        self.transcriber = SpeechRecognitionModel(model_name="large-v2",
+        self.transcriber = SpeechRecognitionModel(model_name=whisper_model,
                                                   data_queue=self.data_queue, 
                                                   generation_callback=self.handle_generation,
                                                   final_callback=self.handle_transcription)
@@ -92,8 +96,10 @@ class AudioSocketServer:
         
     def stream_numpy_array_audio(self, audio):
         # TODO: Make this asyncronhous
-        self.read_list[1].sendall(audio.numpy().tobytes())
+        readable, writable, errored = select.select(self.read_list, self.read_list[1:], [])
+        for socket in writable:
+            socket.sendall(audio.numpy().tobytes())
 
 if __name__ == "__main__":
-    server = AudioSocketServer()
+    server = AudioSocketServer(whisper_model="large-v2")
     server.start()
