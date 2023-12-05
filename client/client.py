@@ -8,6 +8,7 @@ import json
 import sounddevice as sd
 import pickle
 import time
+import threading
 
 class AudioSocketClient:
     FORMAT = pyaudio.paInt16
@@ -15,8 +16,8 @@ class AudioSocketClient:
     RATE = 16000
     CHUNK = 4096
     
-    # Used for Speech Recognition library
-    PHRASE_TIME_LIMIT = 1.5
+    # Used for Speech Recognition library - set this higher for non-English languages
+    PHRASE_TIME_LIMIT = 2
     
     def __init__(self) -> None:
         self.MICROPHONE_INDEX, self.VIRTUAL_MICROPHONE_INDEX = sd.default.device
@@ -39,6 +40,15 @@ class AudioSocketClient:
         
         self.transcription = [""]
         
+        ### Debugging variables
+        self.time_last_sent = None
+        self.time_first_received = None
+        self.time_last_received = None
+        
+        # How much time since the last received packet to refresh the flush
+        self.time_flush_received = 2
+        self.debug_thread = threading.Thread(target=self.__debug_worker__, daemon=True).start()
+        
         
     def __del__(self):
         # Destroy Audio resources
@@ -48,7 +58,8 @@ class AudioSocketClient:
     # Callback function for microphone input, fires when there is new data from the microphone
     def record_callback(self, _, audio: sr.AudioData):
         data = audio.get_raw_data()
-        print(f"send audio data {time.time()}")
+        self.time_last_sent = time.time()
+        print(f"send audio data {self.time_last_sent}")
         
         self.socket.send(data)
         
@@ -79,22 +90,44 @@ class AudioSocketClient:
                 while True:
                     # This is where we will receive data from the server
                     packet = self.socket.recv(self.CHUNK)
-                    audio_chunk = np.frombuffer(packet, dtype=np.float32)
                     
-                    print("receive audio data")
-                    # Speech T5 Output always has a sample rate of 16000
-                    audio_output.write(audio_chunk)
-                    
+                    if packet:
+                        audio_chunk = np.frombuffer(packet, dtype=np.float32)
+                        self.time_last_received = time.time()
+                        
+                        # Speech T5 Output always has a sample rate of 16000
+                        audio_output.write(audio_chunk)
+                        
+                        if not self.time_first_received:
+                            print(f"First audio packet - time: {self.time_last_received - self.time_last_sent}")
+                            self.time_first_received = self.time_last_received 
+            except ConnectionResetError:
+                print("Server connection reset - shutting down client")
+            
             except KeyboardInterrupt:
-                pass
-        
-        print("Finished recording")
-        print("\n\nTranscription:")
-        for line in self.transcription:
-            print(line)
+                print("Received keyboard input - shutting down")
         
         # Close Socket Connection
+        self.socket.shutdown
         self.socket.close()
+
+    def __debug_worker__(self):
+        """Background worker to handle debug statements"""
+        print("Started background debug worker")
+        while True:
+            if not self.time_last_sent:
+                # We can let the processor sleep more
+                time.sleep(1)
+                continue
+            if not self.time_last_received:
+                # Data has been sent, waiting on receiving
+                time.sleep(0.05)
+                continue
+            
+            if time.time() - self.time_last_received > self.time_flush_received:
+                print(f"Last audio packet - time: {self.time_last_received - self.time_last_sent}")
+                self.time_last_received = None
+                self.time_first_received = None
         
         
 client = AudioSocketClient()
