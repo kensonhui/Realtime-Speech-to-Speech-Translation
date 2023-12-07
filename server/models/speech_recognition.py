@@ -81,11 +81,18 @@ class SpeechRecognitionModel:
                   
                 self.phrase_time = current_time
                 self.last_sample = bytes()
+                # why is this necessary? 
                 phrase_complete = True
 
     def __concatenate_new_audio__(self):
         while not self.data_queue.empty():
             client, data = self.data_queue.get()
+            if(client != self.current_client):
+                print(f"Flush {self.recent_transcription}")
+                self.final_callback(self.recent_transcription, self.current_client)
+                self.recent_transcription = ""
+                self.phrase_time = datetime.utcnow()
+                self.last_sample = bytes()
             self.last_sample += data
             self.current_client = client
         

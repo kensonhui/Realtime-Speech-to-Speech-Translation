@@ -132,5 +132,5 @@ class AudioSocketClient:
         
         
 client = AudioSocketClient()
-# client.start('172.174.109.109', 4444)
-client.start('127.0.0.1', 4444)
+client.start('172.174.109.109', 4444)
+# client.start('127.0.0.1', 4444)

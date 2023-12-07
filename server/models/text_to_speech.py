@@ -45,7 +45,7 @@ class TextToSpeechModel:
     # Don't call this code directly!
     def worker(self):
         # TODO: Processor running in loop, best if we do a timeout
-        while True:
+        while not self.__kill_thread:
             if not self.task_queue.empty():
                 client, text = self.task_queue.get()
                 
@@ -60,7 +60,5 @@ class TextToSpeechModel:
                 print(f"synthesize : {text}. Time: {end_time - start_time}")
                 self.callback_function(speech.cpu(), client)
                 self.task_queue.task_done()
-            if self.__kill_thread:
-                break
             time.sleep(0.05)
         
