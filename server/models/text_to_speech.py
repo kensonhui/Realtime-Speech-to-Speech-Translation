@@ -37,11 +37,25 @@ class TextToSpeechModel:
         self.speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
 
     
-    def synthesise(self, text):
+    def synthesise(self, text) -> None:
+        """ Nonblocking function to add text to worker queue, handle output via callback_function"""
         # Call load_speaker_embeddings before generating
         if self.speaker_embeddings is None:
             raise Exception("TextToSpeech: Load speaker embeddings before synthesizing")
         self.task_queue.put(text)
+    
+    def synthesise_blocking(self, text):
+        """Synthesize speech and return it, this is a blocking function"""
+        inputs = self.processor(text=text, return_tensors="pt")
+        start_time = time.time()
+        speech = self.model.generate_speech(
+                    inputs["input_ids"].to(self.device), 
+                    self.speaker_embeddings.to(self.device), 
+                    vocoder=self.vocoder
+                )
+        end_time = time.time()
+        print(f"synthesize : {text}. Time: {end_time - start_time}")
+        return speech.cpu()
         
     # Don't call this code directly!
     def worker(self):
@@ -49,17 +63,8 @@ class TextToSpeechModel:
         while True:
             if not self.task_queue.empty():
                 text = self.task_queue.get()
-                
-                inputs = self.processor(text=text, return_tensors="pt")
-                start_time = time.time()
-                speech = self.model.generate_speech(
-                    inputs["input_ids"].to(self.device), 
-                    self.speaker_embeddings.to(self.device), 
-                    vocoder=self.vocoder
-                )
-                end_time = time.time()
-                print(f"synthesize : {text}. Time: {end_time - start_time}")
-                self.callback_function(speech.cpu())
+                audio = self.process_speech(text)
+                self.callback_function(audio)
                 self.task_queue.task_done()
             if self.__kill_thread:
                 break
