@@ -3,6 +3,7 @@ Github has a great boilerplate .gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
+server/models/__pycache__/
 *.py[cod]
 *.pyc
 
