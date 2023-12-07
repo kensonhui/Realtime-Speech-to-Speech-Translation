@@ -74,7 +74,6 @@ class SpeechRecognitionModel:
         """
         if self.phrase_time and current_time - self.phrase_time > timedelta(seconds=self.phrase_timeout):
             if self.recent_transcription:
-                print(f"Flush {self.recent_transcription}")
                 self.final_callback(self.recent_transcription)
                 self.recent_transcription = ""
                   
@@ -106,7 +105,6 @@ class SpeechRecognitionModel:
                 if text:
                     self.generation_callback({"add": phrase_complete, "text": text, "transcribe_time": end_time - start_time})
                     if phrase_complete and self.recent_transcription:
-                        print(f"Phrase complete: {self.recent_transcription}")
                         self.final_callback(self.recent_transcription)
                     self.recent_transcription = text
         except Exception as e:

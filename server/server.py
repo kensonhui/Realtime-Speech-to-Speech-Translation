@@ -31,7 +31,7 @@ class AudioSocketServer:
         self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
         # TODO: For multiple concurrent users we will need more queues
         #   for now we only want one user to work first
-        self.data_queue = Queue()
+        self.data_queue : Queue = Queue()
         
         # Initialize the transcriber model
         self.transcriber = SpeechRecognitionModel(model_name=whisper_model,
@@ -44,15 +44,17 @@ class AudioSocketServer:
 
 
     def __del__(self):
+        self.data_queue.clear()
         self.audio.terminate()
         self.transcriber.stop()
+        self.serversocket.shutdown()
         self.serversocket.close()
         
     def handle_generation(self, packet: Dict):
-        print (f"{packet}")
+        pass
         
     def handle_transcription(self, packet: str):
-        print(f"Added {packet} to synthesize task queue")
+        print(packet)
         self.text_to_speech.synthesise(packet)
     
     def handle_synthesize(self, audio: torch.Tensor):
@@ -77,7 +79,7 @@ class AudioSocketServer:
                         self.read_list.append(clientsocket)
                         print("Connection from", address)
                     else:
-                        data = s.recv(1024)
+                        data = s.recv(4096)
 
                         if data:
                             self.data_queue.put(data) 
@@ -98,7 +100,11 @@ class AudioSocketServer:
         # TODO: Make this asyncronhous
         readable, writable, errored = select.select(self.read_list, self.read_list[1:], [])
         for socket in writable:
-            socket.sendall(audio.numpy().tobytes())
+            try:
+                socket.sendall(audio.numpy().tobytes())
+            except Exception as e:
+                  print(f"Error sending audio to client: {e}")
+                  self.read_list.remove(socket)
 
 if __name__ == "__main__":
     server = AudioSocketServer(whisper_model="large-v2")
