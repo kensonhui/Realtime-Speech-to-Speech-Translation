@@ -1,9 +1,19 @@
 # Speech To Text To Speech Translation
 
-### Server Installation Instructions:
+This project handles local real-time audio to audio translation over sockets with OpenAI's Whisper and Microsoft SpeechT5 TTS. The project includes a client and server Python program.
 
-Make sure your XCode CLI tools are fully updated!
+Within the client, the user can pipe in the audio output to any virtual microphone or audio device they would like. 
+
+### Server Installation Instructions:
+#### These are all important steps!
+
+Ensure your ports specified in server.py is open! Otherwise your socket connection will fail.
+
+Make sure your XCode CLI or C++ compiler tools are fully updated!
 https://developer.apple.com/forums/thread/677124
+
+Install FFmpeg:
+```sudo apt install ffmpeg```
 
 Install Anaconda:
 https://www.anaconda.com/download
@@ -34,16 +44,15 @@ Install pyaudio:
 Install Project Packages:
 ```pip install -r requirements.txt```
 
-Install Jupyter and Pylance extensions on VSCode.
+Finally run the server:
+```python server.py```
 
 Enjoy 😎😎😎😎😎😎😎
 
 ### Client Installation
 
-Install Jack either via tar or brew
-https://jackaudio.org/downloads/
-or
-```brew install jack``` 
+Install FFmpeg - you can do so with brew, or here: https://ffmpeg.org/download.html.
+```brew install ffmpeg``` 
 
 Install requirements.txt in the clients folder
 ```pip install -r requirements.txt```
