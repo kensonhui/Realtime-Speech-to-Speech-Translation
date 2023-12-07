@@ -31,8 +31,10 @@ class TextToSpeechModel:
         self.thread.join()
 
     def load_speaker_embeddings(self):
-        self.speaker_embeddings = torch.load('models/emma_embeddings.pt')
-        self.speaker_embeddings = self.speaker_embeddings.squeeze(1)
+        # self.speaker_embeddings = torch.load('models/emma_embeddings.pt')
+        # self.speaker_embeddings = self.speaker_embeddings.squeeze(1)
+        embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
+        self.speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
 
     
     def synthesise(self, text):
