@@ -6,11 +6,12 @@ import socket
 import select
 import sys
 import torch
-import threading
 from models.speech_recognition import SpeechRecognitionModel
 from models.text_to_speech import TextToSpeechModel
-from queue import Queue
+import queue
+from torch.multiprocessing import multiprocessing
 from typing import Dict
+
 class AudioSocketServer:
     FORMAT = pyaudio.paInt16
     CHANNELS = 1
@@ -31,24 +32,18 @@ class AudioSocketServer:
         self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
         # TODO: For multiple concurrent users we will need more queues
         #   for now we only want one user to work first
-        self.data_queue : Queue = Queue()
-        
+        self.data_queue : multiprocessing.Queue = multiprocessing.Queue()
+            
         # Initialize the transcriber model
         self.transcriber = SpeechRecognitionModel(model_name=whisper_model,
                                                   data_queue=self.data_queue, 
                                                   generation_callback=self.handle_generation,
                                                   final_callback=self.handle_transcription)
+        
+        # Initalize the text to speech model
         self.text_to_speech = TextToSpeechModel(callback_function=self.handle_synthesize)
         self.text_to_speech.load_speaker_embeddings()
         self.read_list = []
-
-
-    def __del__(self):
-        self.data_queue.clear()
-        self.audio.terminate()
-        self.transcriber.stop()
-        self.serversocket.shutdown()
-        self.serversocket.close()
         
     def handle_generation(self, packet: Dict):
         pass
@@ -89,12 +84,13 @@ class AudioSocketServer:
         except KeyboardInterrupt:
             pass
         
-        print("Performing server cleanup")
+        print("---Performing Server Cleanup---")
         self.audio.terminate()
         self.transcriber.stop()
+        self.text_to_speech.stop()
         self.serversocket.shutdown(socket.SHUT_RDWR)
         self.serversocket.close()
-        print("Sockets cleaned up")
+        print("---Completed Server Cleanup---")
         
     def stream_numpy_array_audio(self, audio):
         # TODO: Make this asyncronhous
@@ -107,5 +103,6 @@ class AudioSocketServer:
                   self.read_list.remove(socket)
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method("spawn",)
     server = AudioSocketServer(whisper_model="large-v2")
     server.start()

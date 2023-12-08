@@ -1,9 +1,9 @@
 import torch
 import time
-import threading
 from datasets import load_dataset
 from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
-from queue import Queue
+import threading
+import queue
 
 class TextToSpeechModel:
     def __init__(self, callback_function):
@@ -19,23 +19,25 @@ class TextToSpeechModel:
         self.vocoder.to(self.device)
         
         # List of tuple of (text, callback_function)
-        self.task_queue = Queue()
+        self.task_queue = queue.Queue()
         self.callback_function = callback_function
         
         # Run in daemon so it self exits
         self.__kill_thread = False
+        # CUDA must use spawn
         self.thread = threading.Thread(target=self.worker, daemon=True).start()
-    
-    def __deL__(self):
-        self.__kill_thread = True
-        self.thread.join()
-
+            
     def load_speaker_embeddings(self):
         # self.speaker_embeddings = torch.load('models/emma_embeddings.pt')
         # self.speaker_embeddings = self.speaker_embeddings.squeeze(1)
         embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
         self.speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
 
+    def stop(self):
+        self.__kill_thread = True
+        if self.thread:
+            self.thread.join()
+            self.thread = None
     
     def synthesise(self, text) -> None:
         """ Nonblocking function to add text to worker queue, handle output via callback_function"""

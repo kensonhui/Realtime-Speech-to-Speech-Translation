@@ -1,21 +1,25 @@
 import torch
 import whisper
-from queue import Queue
+
 import speech_recognition as sr
 import io
 import time
 import soundfile as sf
 from datetime import datetime, timedelta
-import threading
+from torch.multiprocessing import multiprocessing
 
 class SpeechRecognitionModel:    
-    def __init__(self, data_queue, generation_callback=lambda *args: None, final_callback=lambda *args: None, model_name="base"):
+    def __init__(self, 
+                 data_queue: multiprocessing.Queue, 
+                 generation_callback=lambda *args: None, 
+                 final_callback=lambda *args: None, 
+                 model_name="base"):
         # The last time a recording was retrieved from the queue.
         self.phrase_time = datetime.utcnow()
         # Current raw audio bytes.
         self.last_sample = bytes()
         # Thread safe Queue for passing data from the threaded recording callback.
-        self.data_queue : Queue = data_queue
+        self.data_queue : multiprocessing.Queue = data_queue
         # Callback to get real-time transcription results
         self.generation_callback = generation_callback
         # Callback for final transcription results
@@ -34,9 +38,13 @@ class SpeechRecognitionModel:
         self._kill_thread = False
 
         self.recent_transcription = ""
+    
+    def __del__(self):
+        self.stop()
 
     def start(self, sample_rate, sample_width):
-        self.thread = threading.Thread(target=self.__worker__, args=(sample_rate, sample_width))
+        # CUDA must use spawn
+        self.thread = multiprocessing.Process(target=self.__worker__, args=(sample_rate, sample_width))
         self._kill_thread = False
         self.thread.start()
 
