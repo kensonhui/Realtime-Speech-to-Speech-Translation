@@ -81,8 +81,6 @@ class SpeechRecognitionModel:
                   
                 self.phrase_time = current_time
                 self.last_sample = bytes()
-                # why is this necessary? 
-                phrase_complete = True
 
     def __concatenate_new_audio__(self):
         while not self.data_queue.empty():
