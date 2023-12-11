@@ -10,8 +10,6 @@ numpy
 sentencepiece
 transformers
 
-
-
 # Whisper Audio RT
 pyaudio
 SpeechRecognition

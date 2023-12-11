@@ -10,8 +10,10 @@ import pickle
 import time
 import threading
 import logging
+import scipy
+import librosa
 from datetime import datetime, timezone
-from utils.print_audio import print_sound, get_volume_norm
+from utils.print_audio import print_sound, get_volume_norm, convert_and_normalize
 
 class AudioSocketClient:
     FORMAT = pyaudio.paInt16
@@ -21,15 +23,17 @@ class AudioSocketClient:
     
     # Used for Speech Recognition library - set this higher for non-English languages
     PHRASE_TIME_LIMIT = 2
+    # How long you need to stop speaking to be considered an entire phrase
+    PAUSE_THRESHOLD = 0.5
     
     def __init__(self) -> None:
-        self.MICROPHONE_INDEX, self.VIRTUAL_MICROPHONE_INDEX = sd.default.device
+        self.INPUT_MICROPHONE_INDEX, self.OUTPUT_MICROPHONE_INDEX = sd.default.device
         # TODO: Move this to a main function
         print(sd.query_devices())
-        print(f"Using input index of: {self.MICROPHONE_INDEX}\n output index of: {self.VIRTUAL_MICROPHONE_INDEX}.")
+        print(f"Using input index of: {self.INPUT_MICROPHONE_INDEX}\n output index of: {self.OUTPUT_MICROPHONE_INDEX}.")
         if input(" Is this correct?\n y/[n]: ") != "y":
-            self.MICROPHONE_INDEX = int(input("Type the index of the physical microphone: "))
-            self.VIRTUAL_MICROPHONE_INDEX = int(input("Type the index of the output microphone: "))
+            self.INPUT_MICROPHONE_INDEX = int(input("Type the index of the physical microphone: "))
+            self.OUTPUT_MICROPHONE_INDEX = int(input("Type the index of the output microphone: "))
             
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.recorder = sr.Recognizer()
@@ -37,9 +41,11 @@ class AudioSocketClient:
         # Definitely do this, dynamic energy compensation lowers the energy threshold dramatically to a point where the SpeechRecognizer never stops recording.
         self.recorder.dynamic_energy_threshold = False
         
+        self.recorder.pause_threshold = self.PAUSE_THRESHOLD
+        
         # If you're on Linux you'll need to actually list the microphone devices
         #   here I'm being lazy
-        self.source = sr.Microphone(device_index=self.MICROPHONE_INDEX, sample_rate=self.RATE)
+        self.source = sr.Microphone(device_index=self.INPUT_MICROPHONE_INDEX, sample_rate=self.RATE)
         
         self.transcription = [""]
         
@@ -68,8 +74,11 @@ class AudioSocketClient:
         
         self.socket.send(data)
         
-    def update_output_volume(self, indata):
-        print_sound(get_volume_norm(indata), blocks=20)
+        # convert to np array for volume
+  
+        self.volume_input = get_volume_norm(
+            convert_and_normalize(np.frombuffer(data, dtype=np.int16))
+        ) * 4
         
     # Starts the event loop
     def start(self, ip, port):
@@ -88,11 +97,12 @@ class AudioSocketClient:
                                            self.record_callback,
                                            phrase_time_limit=self.PHRASE_TIME_LIMIT)
          ## Open audio as input from microphone
-        print("Started recording...")
+        print("Listening now...\nNote: The input microphone records in very large packets, so the volume meter won't move as much.")
+        self.volume_print_worker = threading.Thread(target=self.__volume_print_worker__, daemon=True).start()
         with sd.OutputStream(samplerate=16000, 
                     channels=1, 
                     dtype=np.float32,
-                    device=self.VIRTUAL_MICROPHONE_INDEX,
+                    device=self.OUTPUT_MICROPHONE_INDEX,
                     ) as audio_output:
             try:
                 while True:
@@ -109,7 +119,7 @@ class AudioSocketClient:
                         
                         # Speech T5 Output always has a sample rate of 16000
                         audio_output.write(audio_chunk)
-                        self.update_output_volume(audio_chunk)
+                        self.volume_output = get_volume_norm(audio_chunk)
                         
             except ConnectionResetError:
                 print("Server connection reset - shutting down client")
@@ -121,10 +131,24 @@ class AudioSocketClient:
         self.socket.shutdown
         self.socket.close()
 
+    def __volume_print_worker__(self):
+        last_volume_input = 0
+        last_volume_output = 0
+        print_sound(0, 0, blocks=10)
+        while True:
+            if abs(last_volume_input - self.volume_input) > 0.1 or abs(last_volume_output - self.volume_output) > 0.1:
+                print_sound(self.volume_input, self.volume_output, blocks=10)
+                last_volume_input = self.volume_input
+                last_volume_output = self.volume_output
+                
+            if self.time_last_sent and time.time() - self.time_last_sent > self.PHRASE_TIME_LIMIT:
+                self.volume_input = 0
+            time.sleep(0.1)
     def __debug_worker__(self):
         """Background worker to handle debug statements"""
         print("Started background debug worker")
         while True:
+            
             if not self.time_last_sent:
                 # We can let the processor sleep more
                 time.sleep(1)
@@ -142,5 +166,13 @@ class AudioSocketClient:
 if __name__ == "__main__":
     date_str = datetime.now(timezone.utc)
     logging.basicConfig(filename=f"logs/{date_str}-output.log", encoding='utf-8', level=logging.DEBUG)
+    
+    # Hide cursor in terminal:
+    print('\033[?25l', end="")
+    
+    # Start server
     client = AudioSocketClient()
     client.start('172.174.109.109', 4444)
+    
+    # Show cursor again:
+    print('\033[?25h', end="")
