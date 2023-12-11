@@ -78,7 +78,7 @@ class AudioSocketClient:
   
         self.volume_input = get_volume_norm(
             convert_and_normalize(np.frombuffer(data, dtype=np.int16))
-        ) * 4
+        )
         
     # Starts the event loop
     def start(self, ip, port):

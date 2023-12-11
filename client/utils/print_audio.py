@@ -25,8 +25,7 @@ def get_volume_norm(indata: np.ndarray):
 
 def print_sound(input_volume, output_volume, blocks=10):
     """"""
-    print("\rInput microphone:" + " " * blocks * 2, end="", flush=True)  # Clears the line
-    print("\rInput microphone:" + "\u2588" * int(input_volume * blocks), end="\n", flush=True)
-
-    print("\rOutput microphone:" + " " * blocks * 2, end="", flush=True)  # Clears the line
-    print("\rOutput microphone:" + "\u2588" * int(output_volume * blocks), end="\033[A", flush=True)
+    print("\rInput microphone:" + " " * blocks * 3 + 
+          "\rInput microphone:" + "\u2588" * int(input_volume * blocks) + "\n" +
+          "\rOutput microphone:" + " " * blocks * 3 +
+          "\rOutput microphone:" + "\u2588" * int(output_volume * blocks) + "\033[A", end="", flush=True)
