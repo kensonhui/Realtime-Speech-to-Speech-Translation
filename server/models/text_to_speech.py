@@ -63,7 +63,7 @@ class TextToSpeechModel:
         while True:
             if not self.task_queue.empty():
                 text = self.task_queue.get()
-                audio = self.process_speech(text)
+                audio = self.synthesise_blocking(text)
                 self.callback_function(audio)
                 self.task_queue.task_done()
             if self.__kill_thread:
