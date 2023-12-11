@@ -79,13 +79,18 @@ class AudioSocketServer:
                         self.read_list.append(clientsocket)
                         print("Connection from", address)
                     else:
-                        data = s.recv(4096)
+                        try:
+                            data = s.recv(4096)
 
-                        if data:
-                            self.data_queue.put(data) 
-                        else:
+                            if data:
+                                self.data_queue.put(data) 
+                            else:
+                                self.read_list.remove(s)
+                                print("Disconnection from", address)
+                        except ConnectionResetError as e:
                             self.read_list.remove(s)
-                            print("Disconnection from", address)
+                            print("Client crashed from", address)
+                            
         except KeyboardInterrupt:
             pass
         
