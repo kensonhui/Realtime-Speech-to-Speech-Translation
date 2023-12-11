@@ -9,6 +9,9 @@ import sounddevice as sd
 import pickle
 import time
 import threading
+import logging
+from datetime import datetime, timezone
+from utils.print_audio import print_sound, get_volume_norm
 
 class AudioSocketClient:
     FORMAT = pyaudio.paInt16
@@ -44,6 +47,8 @@ class AudioSocketClient:
         self.time_last_sent = None
         self.time_first_received = None
         self.time_last_received = None
+        self.volume_input = 0
+        self.volume_output = 0
         
         # How much time since the last received packet to refresh the flush
         self.time_flush_received = 2
@@ -59,9 +64,12 @@ class AudioSocketClient:
     def record_callback(self, _, audio: sr.AudioData):
         data = audio.get_raw_data()
         self.time_last_sent = time.time()
-        print(f"send audio data {self.time_last_sent}")
+        logging.debug(f"send audio data {self.time_last_sent}")
         
         self.socket.send(data)
+        
+    def update_output_volume(self, indata):
+        print_sound(get_volume_norm(indata), blocks=20)
         
     # Starts the event loop
     def start(self, ip, port):
@@ -82,10 +90,10 @@ class AudioSocketClient:
          ## Open audio as input from microphone
         print("Started recording...")
         with sd.OutputStream(samplerate=16000, 
-                       channels=1, 
-                       dtype=np.float32,
-                       device=self.VIRTUAL_MICROPHONE_INDEX,
-                       ) as audio_output:
+                    channels=1, 
+                    dtype=np.float32,
+                    device=self.VIRTUAL_MICROPHONE_INDEX,
+                    ) as audio_output:
             try:
                 while True:
                     # This is where we will receive data from the server
@@ -96,11 +104,12 @@ class AudioSocketClient:
                         self.time_last_received = time.time()
                         
                         if not self.time_first_received:
-                            print(f"First audio packet - time: {self.time_last_received - self.time_last_sent}")
+                            logging.debug(f"First audio packet - time: {self.time_last_received - self.time_last_sent}")
                             self.time_first_received = self.time_last_received 
                         
                         # Speech T5 Output always has a sample rate of 16000
                         audio_output.write(audio_chunk)
+                        self.update_output_volume(audio_chunk)
                         
             except ConnectionResetError:
                 print("Server connection reset - shutting down client")
@@ -126,10 +135,12 @@ class AudioSocketClient:
                 continue
             
             if time.time() - self.time_last_received > self.time_flush_received:
-                print(f"Last audio packet - time: {self.time_last_received - self.time_last_sent}")
+                logging.debug(f"Last audio packet - time: {self.time_last_received - self.time_last_sent}")
                 self.time_last_received = None
                 self.time_first_received = None
         
-        
-client = AudioSocketClient()
-client.start('172.174.109.109', 4444)
+if __name__ == "__main__":
+    date_str = datetime.now(timezone.utc)
+    logging.basicConfig(filename=f"logs/{date_str}-output.log", encoding='utf-8', level=logging.DEBUG)
+    client = AudioSocketClient()
+    client.start('172.174.109.109', 4444)

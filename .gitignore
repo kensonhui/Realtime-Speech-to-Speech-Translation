@@ -7,5 +7,9 @@ server/models/__pycache__/
 *.py[cod]
 *.pyc
 
+# Embeddings and Wave audio files
 *.pt
 *.wav
+
+# Client Logs
+client/logs/*.log
