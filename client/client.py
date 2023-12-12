@@ -1,17 +1,11 @@
 import pyaudio
 import socket
-import sys
 import speech_recognition as sr
-import os
 import numpy as np
-import json
 import sounddevice as sd
-import pickle
 import time
 import threading
 import logging
-import scipy
-import librosa
 from datetime import datetime, timezone
 from utils.print_audio import print_sound, get_volume_norm, convert_and_normalize
 
