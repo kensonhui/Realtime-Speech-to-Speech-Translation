@@ -35,6 +35,8 @@ class SpeechRecognitionModel:
 
         self.recent_transcription = ""
 
+        self.current_client = None
+
     def start(self, sample_rate, sample_width):
         self.thread = threading.Thread(target=self.__worker__, args=(sample_rate, sample_width))
         self._kill_thread = False
@@ -55,7 +57,6 @@ class SpeechRecognitionModel:
                 self.__concatenate_new_audio__()
                 self.__transcribe_audio__(sample_rate, sample_width, phrase_complete)
             time.sleep(0.05)
-            
 
     def __update_phrase_time__(self, current_time):
         phrase_complete = False
@@ -73,19 +74,25 @@ class SpeechRecognitionModel:
         If there is anything to flush, we'll update the phrase time.
         """
         if self.phrase_time and current_time - self.phrase_time > timedelta(seconds=self.phrase_timeout):
-            if self.recent_transcription:
-                self.final_callback(self.recent_transcription)
+            if self.recent_transcription and self.current_client:
+                print(f"Flush {self.recent_transcription}")
+                self.final_callback(self.recent_transcription, self.current_client)
                 self.recent_transcription = ""
                   
                 self.phrase_time = current_time
                 self.last_sample = bytes()
-                phrase_complete = True
 
     def __concatenate_new_audio__(self):
-        concat_start_time = time.time()
         while not self.data_queue.empty():
-            data = self.data_queue.get()
+            client, data = self.data_queue.get()
+            if(client != self.current_client):
+                print(f"Flush {self.recent_transcription}")
+                self.final_callback(self.recent_transcription, self.current_client)
+                self.recent_transcription = ""
+                self.phrase_time = datetime.utcnow()
+                self.last_sample = bytes()
             self.last_sample += data
+            self.current_client = client
         
 
     def __transcribe_audio__(self, sample_rate, sample_width, phrase_complete):
@@ -104,8 +111,9 @@ class SpeechRecognitionModel:
                 text = result['text'].strip()
                 if text:
                     self.generation_callback({"add": phrase_complete, "text": text, "transcribe_time": end_time - start_time})
-                    if phrase_complete and self.recent_transcription:
-                        self.final_callback(self.recent_transcription)
+                    if phrase_complete and self.recent_transcription and self.current_client:
+                        print(f"Phrase complete: {self.recent_transcription}")
+                        self.final_callback(self.recent_transcription, self.current_client)
                     self.recent_transcription = text
         except Exception as e:
             print(f"Error during transcription: {e}")

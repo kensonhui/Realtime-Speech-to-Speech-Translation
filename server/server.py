@@ -43,6 +43,7 @@ class AudioSocketServer:
         self.read_list = []
 
 
+
     def __del__(self):
         self.data_queue.clear()
         self.audio.terminate()
@@ -53,12 +54,13 @@ class AudioSocketServer:
     def handle_generation(self, packet: Dict):
         pass
         
-    def handle_transcription(self, packet: str):
-        print(packet)
-        self.text_to_speech.synthesise(packet)
+    def handle_transcription(self, packet: str, client_socket):
+        print(f"Added {packet} to synthesize task queue")
+        # client_socket = self.read_list[1]
+        self.text_to_speech.synthesise(packet, client_socket)
     
-    def handle_synthesize(self, audio: torch.Tensor):
-        self.stream_numpy_array_audio(audio)
+    def handle_synthesize(self, audio: torch.Tensor, client_socket):
+        self.stream_numpy_array_audio(audio, client_socket)
 
     def start(self):
         self.transcriber.start(16000, 2)
@@ -72,7 +74,7 @@ class AudioSocketServer:
 
         try:
             while True:
-                readable, writable, errored = select.select(self.read_list, [], [])
+                readable, _, _ = select.select(self.read_list, [], [])
                 for s in readable:
                     if s is self.serversocket:
                         (clientsocket, address) = self.serversocket.accept()
@@ -83,7 +85,7 @@ class AudioSocketServer:
                             data = s.recv(4096)
 
                             if data:
-                                self.data_queue.put(data) 
+                                self.data_queue.put((s, data)) 
                             else:
                                 self.read_list.remove(s)
                                 print("Disconnection from", address)
@@ -101,16 +103,15 @@ class AudioSocketServer:
         self.serversocket.close()
         print("Sockets cleaned up")
         
-    def stream_numpy_array_audio(self, audio):
-        # TODO: Make this asyncronhous
-        readable, writable, errored = select.select(self.read_list, self.read_list[1:], [])
-        for socket in writable:
-            try:
-                socket.sendall(audio.numpy().tobytes())
-            except Exception as e:
-                  print(f"Error sending audio to client: {e}")
-                  self.read_list.remove(socket)
+    def stream_numpy_array_audio(self, audio, client_socket):
+        try:
+            client_socket.sendall(audio.numpy().tobytes())
+        except Exception as e:
+            print(f"Error sending audio to client: {e}")
+            if client_socket in self.read_list:
+                self.read_list.remove(client_socket)
+
 
 if __name__ == "__main__":
-    server = AudioSocketServer(whisper_model="large-v2")
+    server = AudioSocketServer(whisper_model="base")
     server.start()

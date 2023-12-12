@@ -37,12 +37,12 @@ class TextToSpeechModel:
         self.speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
 
     
-    def synthesise(self, text) -> None:
+    def synthesise(self, text, client_socket) -> None:
         """ Nonblocking function to add text to worker queue, handle output via callback_function"""
         # Call load_speaker_embeddings before generating
         if self.speaker_embeddings is None:
             raise Exception("TextToSpeech: Load speaker embeddings before synthesizing")
-        self.task_queue.put(text)
+        self.task_queue.put((client_socket, text))
     
     def synthesise_blocking(self, text):
         """Synthesize speech and return it, this is a blocking function"""
@@ -60,13 +60,11 @@ class TextToSpeechModel:
     # Don't call this code directly!
     def worker(self):
         # TODO: Processor running in loop, best if we do a timeout
-        while True:
+        while not self.__kill_thread:
             if not self.task_queue.empty():
-                text = self.task_queue.get()
+                client, text = self.task_queue.get()
                 audio = self.synthesise_blocking(text)
-                self.callback_function(audio)
+                self.callback_function(audio, client)
                 self.task_queue.task_done()
-            if self.__kill_thread:
-                break
             time.sleep(0.05)
         
