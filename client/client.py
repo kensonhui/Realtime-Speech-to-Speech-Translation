@@ -4,7 +4,6 @@ import socket
 import time
 import threading
 from datetime import datetime, timezone
-import pyaudio
 import speech_recognition as sr
 import numpy as np
 import sounddevice as sd
@@ -13,7 +12,6 @@ from utils.print_audio import print_sound, get_volume_norm, convert_and_normaliz
 class AudioSocketClient:
     """ Client for recording audio, streaming it to the server via sockets, receiving
     the data and then piping it to an output audio device """
-    FORMAT = pyaudio.paInt16
     CHANNELS = 1
     RATE = 16000
     CHUNK = 4096
@@ -21,23 +19,24 @@ class AudioSocketClient:
     PHRASE_TIME_LIMIT = 2
     # How long you need to stop speaking to be considered an entire phrase
     PAUSE_THRESHOLD = 0.5
+    # Volume for the microphone
+    RECORDER_ENERGY_THRESHOLD = 1000
     def __init__(self) -> None:
+        # Prompt the user to select their devices
         self.input_device_index, self.output_device_index = sd.default.device
-        # TODO: Move this to a main function
         print(sd.query_devices())
         print(f"Using input index of: {self.input_device_index}\noutput index of: {self.output_device_index}.")
         if input(" Is this correct?\n y/[n]: ") != "y":
             self.input_device_index = int(input("Type the index of the physical microphone: "))
             self.output_device_index = int(input("Type the index of the output microphone: "))
+
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.recorder = sr.Recognizer()
-        self.recorder.energy_threshold = 1000
+        self.recorder.energy_threshold = self.RECORDER_ENERGY_THRESHOLD
         """Definitely do this, dynamic energy compensation lowers the energy threshold dramatically 
             to a point where the SpeechRecognizer never stops recording."""
         self.recorder.dynamic_energy_threshold = False
         self.recorder.pause_threshold = self.PAUSE_THRESHOLD
-        # If you're on Linux you'll need to actually list the microphone devices
-        #   here I'm being lazy
         self.source = sr.Microphone(device_index=self.input_device_index, sample_rate=self.RATE)
         self.transcription = [""]
         ### Debugging variables
@@ -54,10 +53,11 @@ class AudioSocketClient:
         print('Shutting down')
 
     def record_callback(self, _, audio: sr.AudioData):
-        """ Callback function for microphone input, fires when there is new data from the microphone """
+        """ Callback function for microphone input, 
+            fires when there is new data from the microphone """
         data = audio.get_raw_data()
         self.time_last_sent = time.time()
-        logging.debug(f"send audio data {self.time_last_sent}")
+        logging.debug("send audio data %f", self.time_last_sent)
         self.socket.send(data)
         # convert to np array for volume
         self.volume_input = get_volume_norm(
@@ -78,9 +78,10 @@ class AudioSocketClient:
          ## Open audio as input from microphone
         print('''Listening now...\nNote: The input microphone records
               in very large packets, so the volume meter won't move as much.''')
-        self.volume_print_worker = threading.Thread(target=self.__volume_print_worker__, daemon=True)
+        self.volume_print_worker = threading.Thread(target=self.__volume_print_worker__,
+                                                    daemon=True)
         self.volume_print_worker.start()
-        with sd.OutputStream(samplerate=16000,
+        with sd.OutputStream(samplerate=self.RATE,
                     channels=1,
                     dtype=np.float32,
                     device=self.output_device_index,
@@ -93,7 +94,8 @@ class AudioSocketClient:
                         audio_chunk = np.frombuffer(packet, dtype=np.float32)
                         self.time_last_received = time.time()
                         if not self.time_first_received:
-                            logging.debug(f"First audio packet - time: {self.time_last_received - self.time_last_sent}")
+                            logging.debug("First audio packet - time: %f",
+                                          self.time_last_received - self.time_last_sent)
                             self.time_first_received = self.time_last_received
                         # Speech T5 Output always has a sample rate of 16000
                         audio_output.write(audio_chunk)
@@ -131,12 +133,16 @@ class AudioSocketClient:
                 time.sleep(0.05)
                 continue
             if time.time() - self.time_last_received > self.time_flush_received:
-                logging.debug(f"Last audio packet - time: {self.time_last_received - self.time_last_sent}")
+                logging.debug("Last audio packet - time: %f",
+                              self.time_last_received - self.time_last_sent)
                 self.time_last_received = None
                 self.time_first_received = None
+
 if __name__ == "__main__":
     date_str = datetime.now(timezone.utc)
-    logging.basicConfig(filename=f"logs/{date_str}-output.log", encoding='utf-8', level=logging.DEBUG)
+    logging.basicConfig(filename=f"logs/{date_str}-output.log",
+                        encoding='utf-8',
+                        level=logging.DEBUG)
     # Hide cursor in terminal:
     print('\033[?25l', end="")
     # Start server
