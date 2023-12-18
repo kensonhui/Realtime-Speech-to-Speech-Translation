@@ -1,5 +1,9 @@
 # Speech To Text To Speech Translation
 
+### Demo
+[https://www.youtube.com/watch?v=yvikqjM8TeA]
+
+
 This project handles local real-time audio to audio translation over sockets with OpenAI's Whisper and Microsoft SpeechT5 TTS. The project includes a client and server Python program, meaning that users can choose host the service on a high-performance GPU, then be able to use it on any consumer-level device.
 ![Screenshot 2023-12-13 at 10 05 56 AM](https://github.com/kensonhui/live-speech-to-text-to-speech/assets/60726802/02fc9af7-b0a8-4350-b763-af92431d5171)
 
