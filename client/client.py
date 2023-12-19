@@ -18,7 +18,7 @@ class AudioSocketClient:
     # Used for Speech Recognition library - set this higher for non-English languages
     PHRASE_TIME_LIMIT = 2
     # How long you need to stop speaking to be considered an entire phrase
-    PAUSE_THRESHOLD = 0.5
+    PAUSE_THRESHOLD = 0.8
     # Volume for the microphone
     RECORDER_ENERGY_THRESHOLD = 1000
     def __init__(self) -> None:
