@@ -90,3 +90,13 @@ Microphone -> Transcribe to english text
 ## speech-to-transcribe
 
 Microphone -> Translate and transcribe to english text
+
+
+### Errors
+```clang: error: no such file or directory: '/Users/kensonhui/anaconda3/envs/speech-to-speech/lib/python3.11/config-3.11-darwin/libpython3.11.a'```
+
+or 
+
+```PY_SSIZE_T_CLEAN macro must be defined for '#' formats```
+
+You'll have to update conda, update XCode, update brew, update your XCode CLI tools. Destroy your env, and rebuild your environment :D.
