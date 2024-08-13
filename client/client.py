@@ -147,6 +147,6 @@ if __name__ == "__main__":
     print('\033[?25l', end="")
     # Start server
     client = AudioSocketClient()
-    client.start('172.174.109.109', 4444)
+    client.start('localhost', 4444)
     # Show cursor again:
     print('\033[?25h', end="")
