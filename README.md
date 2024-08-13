@@ -72,6 +72,11 @@ Install FFmpeg - you can do so with brew, or here: https://ffmpeg.org/download.h
 Install requirements.txt in the clients folder
 ```pip install -r requirements.txt```
 
+If you're running server.py on a remote server, change "localhost" to your remote server ip in client .py in this line:
+```
+client.start(("localhost", 4444)) 
+```
+
 Finally run the client:
 ```python client.py```
 
